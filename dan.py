@@ -48,19 +48,48 @@ def isMatch(wavePath1, wavePath2):
     wave1 = wave.open(wavePath1, 'r')
     wave2 = wave.open(wavePath2, 'r')
  
-    wave1_data = scipy.io.wavfile.read(wavePath1)[1]
-    wave2_data = scipy.io.wavfile.read(wavePath2)[1]    
+    wave1_results = scipy.io.wavfile.read(wavePath1)
+    wave2_results = scipy.io.wavfile.read(wavePath2)
+
+    wave1_data = wave1_results[1]
+    wave2_data = wave2_results[1]
     
+    wave1_numSamples = len(wave1_data)
+    wave1_samplingRate = wave1_results[0]
+    
+    wave2_numSamples = len(wave2_data)
+    wave2_samplingRate = wave2_results[0]    
+
     wave1_data = wave1_data.astype(numpy.float)
     wave2_data = wave2_data.astype(numpy.float)
     
     wave1_mono = stereoToMono(wave1_data)
     wave2_mono = stereoToMono(wave2_data)
 
-    chunkLength = 44100 * 4
-    chunk = wave1_mono[0:chunkLength]
+    #chunkLength = 44100 * 4
+    #chunk = wave1_mono[0:chunkLength]
+
+    # Total length 441000 (number of sample)
+    chunkSize = 512
+    #print     
+
+    for i in range (0, wave1_numSamples / chunkSize):
+        
+        startBounds = i * chunkSize
+
+        endBounds = (i + 1) * chunkSize
+        
+	#print "starting fft"
+        fftResult = numpy.fft.fft(wave1_data[startBounds:endBounds])
+        freqs = numpy.fft.fftfreq(endBounds - startBounds)
+        
+        if i == 0:
+            print "results"
+            print fftResult
+            print "freqs"
+            print freqs
     
-    print chunk
+    # print chunk
     
     if songLength(wave1) != songLength(wave2):
         return "NO MATCH"
