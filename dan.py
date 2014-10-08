@@ -37,7 +37,7 @@ def stereoToMono(byteVector):
         mono.append(average)
     return mono
 
-	def isMatch(wavePath1, wavePath2):
+def isMatch(wavePath1, wavePath2):
     if not os.path.isfile(wavePath1) or not os.path.isfile(wavePath2):
         throwError(1, "")
     if not (isValidExtension(wavePath1)):
@@ -59,8 +59,9 @@ def stereoToMono(byteVector):
 
     chunkLength = 44100 * 4
     chunk = wave1_mono[0:chunkLength]
-
-    print fftResult
+    
+    print chunk
+    
     if songLength(wave1) != songLength(wave2):
         return "NO MATCH"
     else:
