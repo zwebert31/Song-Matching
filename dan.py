@@ -37,6 +37,29 @@ def stereoToMono(byteVector):
         mono.append(average)
     return mono
 
+#returns 1 if frequencies are a match, 0 if they are not
+def compareFreq(freq1, freq2, maxKeys):
+    keyIndex1 = 0;
+    keyIndex2 = 0;
+    for i in range(1,len(freq1)/2):
+        if(freq1[i] > freq1[keyIndex1]): 
+            keyIndex1 = i
+        
+        if(freq2[i] > freq2[keyIndex2]): 
+            keyIndex2 = i
+        
+        print str(freq1[i]) + " VS " + str(freq2[i])
+    if (keyIndex1 == keyIndex2):
+        return 1;
+    else:
+        return 0; 
+
+def calculateMagnitude(fftArray):
+    magArray = []
+    for i in range (0, len(fftArray)):
+        magArray.append(numpy.sqrt(numpy.power(fftArray[i][0], 2) + numpy.power(fftArray[i][1], 2)))
+    return magArray
+
 def isMatch(wavePath1, wavePath2):
     if not os.path.isfile(wavePath1) or not os.path.isfile(wavePath2):
         throwError(1, "")
@@ -70,7 +93,7 @@ def isMatch(wavePath1, wavePath2):
     #chunk = wave1_mono[0:chunkLength]
 
     # Total length 441000 (number of sample)
-    chunkSize = 512
+    chunkSize = 44100 #512
     #print     
 
     for i in range (0, wave1_numSamples / chunkSize):
@@ -80,14 +103,22 @@ def isMatch(wavePath1, wavePath2):
         endBounds = (i + 1) * chunkSize
         
 	#print "starting fft"
-        fftResult = numpy.fft.fft(wave1_data[startBounds:endBounds])
-        freqs = numpy.fft.fftfreq(endBounds - startBounds)
+
+	#fft for wav1
+        fftResult1 = numpy.fft.fft(wave1_data[startBounds:endBounds])
         
-        if i == 0:
-            print "results"
-            print fftResult
-            print "freqs"
-            print freqs
+        #fft for wav2
+        fftResult2 = numpy.fft.fft(wave2_data[startBounds:endBounds])
+        
+        mag1 = calculateMagnitude(fftResult1)
+        mag2 = calculateMagnitude(fftResult2)
+        print compareFreq(mag1, mag2, 1)
+ 
+    #if i == 0:
+    #        print "results"
+    #        print fftResult1
+    #        print "freqs"
+    #        print freqs1
     
     # print chunk
     
@@ -95,7 +126,7 @@ def isMatch(wavePath1, wavePath2):
         return "NO MATCH"
     else:
         return "MATCH"
-    
+
 print isMatch(sys.argv[2], sys.argv[4])
 #if sys.argv[1] != '-f' or sys.argv[3] != '-f':
 #    print("Error incorrect syntax")
