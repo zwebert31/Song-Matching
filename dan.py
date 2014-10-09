@@ -8,6 +8,9 @@ import os.path
 import scipy.io.wavfile
 import scipy.fftpack
 
+DEBUG = 0
+
+#Returns the length of the long in seconds
 def songLength(waveFile):
     return waveFile.getnframes()/float(waveFile.getframerate())
 
@@ -22,14 +25,17 @@ def throwError(code, arg):
         sys.stderr.write("ERROR: there was a problem")
     exit(code)
 
+#returns the extension of the file
 def getExtension(path):
     return os.path.splitext(path)[1]
 
+#returns 1 if extension is valid, 0 if invalid
 def isValidExtension(path):
     extension = getExtension(path)
     extensions = [".wav"]
     return extension in extensions
 
+#convert a stereo byte vector to a mono signal
 def stereoToMono(byteVector):
     mono = [];
     for data in byteVector:
@@ -48,18 +54,19 @@ def compareFreq(freq1, freq2, maxKeys):
         if(freq2[i] > freq2[keyIndex2]): 
             keyIndex2 = i
         
-        print str(freq1[i]) + " VS " + str(freq2[i])
+        #print str(freq1[i]) + " VS " + str(freq2[i])
     if (keyIndex1 == keyIndex2):
         return 1;
     else:
         return 0; 
-
+#returns a list of magnitudes from an fftArray
 def calculateMagnitude(fftArray):
     magArray = []
     for i in range (0, len(fftArray)):
         magArray.append(numpy.sqrt(numpy.power(fftArray[i][0], 2) + numpy.power(fftArray[i][1], 2)))
     return magArray
 
+#returns MATCH if two songs match, NO MATCH if two songs do not match
 def isMatch(wavePath1, wavePath2):
     if not os.path.isfile(wavePath1) or not os.path.isfile(wavePath2):
         throwError(1, "")
@@ -89,13 +96,12 @@ def isMatch(wavePath1, wavePath2):
     wave1_mono = stereoToMono(wave1_data)
     wave2_mono = stereoToMono(wave2_data)
 
-    #chunkLength = 44100 * 4
-    #chunk = wave1_mono[0:chunkLength]
+    # set chunk size to one second
+    chunkSize = 44100
+    
+    matchCount = 0 #number of chunk matches
 
-    # Total length 441000 (number of sample)
-    chunkSize = 44100 #512
-    #print     
-
+    #iterate through chunks, perform fft and compare the chunks
     for i in range (0, wave1_numSamples / chunkSize):
         
         startBounds = i * chunkSize
@@ -110,22 +116,21 @@ def isMatch(wavePath1, wavePath2):
         #fft for wav2
         fftResult2 = numpy.fft.fft(wave2_data[startBounds:endBounds])
         
+        #calculate the magnitudes
         mag1 = calculateMagnitude(fftResult1)
         mag2 = calculateMagnitude(fftResult2)
-        print compareFreq(mag1, mag2, 1)
- 
-    #if i == 0:
-    #        print "results"
-    #        print fftResult1
-    #        print "freqs"
-    #        print freqs1
-    
-    # print chunk
-    
+        
+        #compare magnitudes
+        if compareFreq(mag1, mag2, 1) == 1:
+            matchCount += 1
+  
     if songLength(wave1) != songLength(wave2):
         return "NO MATCH"
     else:
-        return "MATCH"
+        if matchCount > (wave1_numSamples / chunkSize / 2):
+            return "MATCH"
+        else:
+            return "NO MATCH"
 
 print isMatch(sys.argv[2], sys.argv[4])
 #if sys.argv[1] != '-f' or sys.argv[3] != '-f':
