@@ -21,11 +21,11 @@ def songLength(waveFile):
 def throwError(code, arg=""):
     if code == 1:
         sys.stderr.write("ERROR: incorrect command line\n")
-    if code == 2:
+    elif code == 2:
         sys.stderr.write("ERROR: " + formatFileName(arg)
                          + " is not a supported format\n")
     else:
-        sys.stderr.write("ERROR: there was a problem")
+        sys.stderr.write("ERROR: there was a problem\n")
     exit(code)
 
 #returns the formatted name of the file
@@ -40,6 +40,16 @@ def formatFileName(path):
 
     formatted_str = ''.join(tmp)
     return formatted_str
+
+#returns the extension of the file
+def getExtension(path):
+    return os.path.splitext(path)[1]
+
+#returns 1 if extension is valid, 0 if invalid
+def isValidExtension(path):
+    extension = getExtension(path)
+    extensions = [".wav"]
+    return extension in extensions
 
 #convert a stereo byte vector to a mono signal
 def stereoToMono(byteVector):
@@ -87,10 +97,10 @@ def isMatch(wavePath1, wavePath2):
     if not os.path.isfile(wavePath1) or not os.path.isfile(wavePath2):
         throwError(1)
     
-    #if not (isValidExtension(wavePath1)):
-    #    throwError(2, wavePath1)
-    #if not (isValidExtension(wavePath2)):
-    #    throwError(2, wavePath2)
+    if not (isValidExtension(wavePath1)):
+        throwError(2, wavePath1)
+    if not (isValidExtension(wavePath2)):
+        throwError(2, wavePath2)
 
     #open the files, make sure they are valid wav files
     try:
@@ -155,17 +165,18 @@ def isMatch(wavePath1, wavePath2):
   
     #if song length is different, return no match
     if songLength(wave1) != songLength(wave2):
-        return "NO MATCH\n"
+        return "NO MATCH"
     else:
         #if at least half of the chunks are matches, return match
         if matchCount > (wave1_numSamples / chunkSize / 2):
-            return "MATCH " + formatFileName(wavePath1) + " " + formatFileName(wavePath2) +"\n"
+            return "MATCH " + formatFileName(wavePath1) + " " + formatFileName(wavePath2)
         else:
-            return "NO MATCH\n"
+            return "NO MATCH"
     
     #exit with status of 0 as specified in directions
     exit(0)
 
+#MAIN
 #check for valid command line input
 if sys.argv[1] != '-f' or sys.argv[3] != '-f':
      throwError(1, "")
