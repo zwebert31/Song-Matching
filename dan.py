@@ -59,6 +59,7 @@ def compareFreq(freq1, freq2, maxKeys):
         return 1;
     else:
         return 0; 
+
 #returns a list of magnitudes from an fftArray
 def calculateMagnitude(fftArray):
     magArray = []
@@ -75,9 +76,20 @@ def isMatch(wavePath1, wavePath2):
     if not (isValidExtension(wavePath2)):
         throwError(2, wavePath2)
 
-    wave1 = wave.open(wavePath1, 'r')
-    wave2 = wave.open(wavePath2, 'r')
- 
+
+#open up the files, make sure they are valid wav files
+    try:
+        wave1 = wave.open(wavePath1, 'r')
+    except wave.Error:
+        print "ERROR: " + wavePath1 + " is not a supported format"
+        exit()
+
+    try:
+        wave2 = wave.open(wavePath2, 'r')
+    except wave.Error:
+        print "ERROR: " + wavePath2 + " is not a supported format"
+        exit()
+
     wave1_results = scipy.io.wavfile.read(wavePath1)
     wave2_results = scipy.io.wavfile.read(wavePath2)
 
@@ -128,7 +140,7 @@ def isMatch(wavePath1, wavePath2):
         return "NO MATCH"
     else:
         if matchCount > (wave1_numSamples / chunkSize / 2):
-            return "MATCH"
+            return "MATCH " + wavePath1 + " " +  wavePath2
         else:
             return "NO MATCH"
 
@@ -141,7 +153,4 @@ print isMatch(sys.argv[2], sys.argv[4])
     
 #    nchannels, sampwidth, framerate, nframes, comptype, compname =  waveFile.getparams()
 #    print struct.unpack("HH", waveFile.readframes(1))
-#    print songLength(nframes, framerate)
-#for i in range(0,length):
-
-        
+#    print songLength(nframes, framerate)        
