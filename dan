@@ -178,8 +178,11 @@ def isMatch(wavePath1, wavePath2):
 
 #MAIN
 #check for valid command line input
+if len(sys.argv) != 5:
+    throwError(1)    
+    
 if sys.argv[1] != '-f' or sys.argv[3] != '-f':
-     throwError(1, "")
+    throwError(1)
 
 #print match result
 print isMatch(sys.argv[2], sys.argv[4])
