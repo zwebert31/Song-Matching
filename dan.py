@@ -148,12 +148,15 @@ def isMatch(wavePath1, wavePath2):
             matchCount += 1
   
     if songLength(wave1) != songLength(wave2):
-        return "NO MATCH"
+        return "NO MATCH\n"
     else:
         if matchCount > (wave1_numSamples / chunkSize / 2):
-            return "MATCH " + formatFileName(wavePath1) + " " + formatFileName(wavePath2)
+            return "MATCH " + formatFileName(wavePath1) + " " + formatFileName(wavePath2) +"\n"
         else:
-            return "NO MATCH"
+            return "NO MATCH\n"
+    
+    #exit with status of 0 as specified in directions
+    exit(0)
 
 #make sure user has put in correct input
 if sys.argv[1] != '-f' or sys.argv[3] != '-f':
