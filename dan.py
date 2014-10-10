@@ -20,7 +20,8 @@ def throwError(code, arg):
     if code == 1:
         sys.stderr.write("ERROR: incorrect command line\n")
     if code == 2:
-        sys.stderr.write("ERROR: " + arg + " is not a supported format\n")
+        sys.stderr.write("ERROR: " + formatFileName(arg)
+                         + " is not a supported format\n")
     else:
         sys.stderr.write("ERROR: there was a problem")
     exit(code)
@@ -89,19 +90,16 @@ def isMatch(wavePath1, wavePath2):
     if not (isValidExtension(wavePath2)):
         throwError(2, wavePath2)
 
-
-#open up the files, make sure they are valid wav files
+    #open up the files, make sure they are valid wav files
     try:
         wave1 = wave.open(wavePath1, 'r')
     except wave.Error:
-        print "ERROR: " + wavePath1 + " is not a supported format"
-        exit()
+        throwError(2, wavePath1)
 
     try:
         wave2 = wave.open(wavePath2, 'r')
     except wave.Error:
-        print "ERROR: " + wavePath2 + " is not a supported format"
-        exit()
+        throwError(2, wavePath2)
 
     wave1_results = scipy.io.wavfile.read(wavePath1)
     wave2_results = scipy.io.wavfile.read(wavePath2)
@@ -157,13 +155,12 @@ def isMatch(wavePath1, wavePath2):
         else:
             return "NO MATCH"
 
+#make sure user has put in correct input
+if sys.argv[1] != '-f' or sys.argv[3] != '-f':
+     throwError(1, "")
+
 print isMatch(sys.argv[2], sys.argv[4])
-#if sys.argv[1] != '-f' or sys.argv[3] != '-f':
-#    print("Error incorrect syntax")
-#    exit(1);
-#else:	
-#    waveFile = wave.open(sys.argv[2], 'r')
-    
+
 #    nchannels, sampwidth, framerate, nframes, comptype, compname =  waveFile.getparams()
 #    print struct.unpack("HH", waveFile.readframes(1))
 #    print songLength(nframes, framerate)        
