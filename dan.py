@@ -10,7 +10,7 @@ import scipy.fftpack
 
 DEBUG = 0
 
-#Returns the length of the long in seconds
+#Returns the length of the song in seconds
 def songLength(waveFile):
     return waveFile.getnframes()/float(waveFile.getframerate())
 
@@ -34,6 +34,19 @@ def isValidExtension(path):
     extension = getExtension(path)
     extensions = [".wav"]
     return extension in extensions
+
+#returns the name of the file
+def formatFileName(path):
+    tmp = []
+
+    for i in range (0, len(path)):
+        if path[i] == '/':
+           tmp = []
+        else:
+           tmp.append(path[i])
+
+    formatted_str = ''.join(tmp)
+    return formatted_str
 
 #convert a stereo byte vector to a mono signal
 def stereoToMono(byteVector):
@@ -140,7 +153,7 @@ def isMatch(wavePath1, wavePath2):
         return "NO MATCH"
     else:
         if matchCount > (wave1_numSamples / chunkSize / 2):
-            return "MATCH " + wavePath1 + " " +  wavePath2
+            return "MATCH " + formatFileName(wavePath1) + " " + formatFileName(wavePath2)
         else:
             return "NO MATCH"
 
