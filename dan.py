@@ -8,15 +8,17 @@ import os.path
 import scipy.io.wavfile
 import scipy.fftpack
 
+#enable debug print
 DEBUG = 0
 
-#Returns the length of the song in seconds
+#Returns the length of the waveFile in seconds
 def songLength(waveFile):
     return waveFile.getnframes()/float(waveFile.getframerate())
 
+#Print an error to standard error
 #ERROR CODE 1: Invalid command line
 #ERROR CODE 2: Invalid file format
-def throwError(code, arg):
+def throwError(code, arg=""):
     if code == 1:
         sys.stderr.write("ERROR: incorrect command line\n")
     if code == 2:
@@ -26,17 +28,7 @@ def throwError(code, arg):
         sys.stderr.write("ERROR: there was a problem")
     exit(code)
 
-#returns the extension of the file
-def getExtension(path):
-    return os.path.splitext(path)[1]
-
-#returns 1 if extension is valid, 0 if invalid
-def isValidExtension(path):
-    extension = getExtension(path)
-    extensions = [".wav"]
-    return extension in extensions
-
-#returns the name of the file
+#returns the formatted name of the file
 def formatFileName(path):
     tmp = []
 
@@ -53,44 +45,54 @@ def formatFileName(path):
 def stereoToMono(byteVector):
     mono = [];
     for data in byteVector:
+        #average the two signals
         average = (data[0] + data[1])/2.0
         mono.append(average)
     return mono
 
 #returns 1 if frequencies are a match, 0 if they are not
 def compareFreq(freq1, freq2, maxKeys):
+    #the peak index for each set of frequencies
     keyIndex1 = 0;
     keyIndex2 = 0;
+
+    #find the peak index
     for i in range(1,len(freq1)/2):
         if(freq1[i] > freq1[keyIndex1]): 
             keyIndex1 = i
         
         if(freq2[i] > freq2[keyIndex2]): 
             keyIndex2 = i
-        
-        #print str(freq1[i]) + " VS " + str(freq2[i])
+    
+    #if the key index is the same, return a match        
     if (keyIndex1 == keyIndex2):
         return 1;
     else:
         return 0; 
 
-#returns a list of magnitudes from an fftArray
+#returns a list of magnitudes from an FFT array
 def calculateMagnitude(fftArray):
     magArray = []
+
+    #calculate magnitude for each complex number in the FFT array
     for i in range (0, len(fftArray)):
+        #calculate the magnitude: sqrt(a^2 + b^2)
         magArray.append(numpy.sqrt(numpy.power(fftArray[i][0], 2) + numpy.power(fftArray[i][1], 2)))
     return magArray
 
 #returns MATCH if two songs match, NO MATCH if two songs do not match
 def isMatch(wavePath1, wavePath2):
+    
+    #check for file exists
     if not os.path.isfile(wavePath1) or not os.path.isfile(wavePath2):
-        throwError(1, "")
-    if not (isValidExtension(wavePath1)):
-        throwError(2, wavePath1)
-    if not (isValidExtension(wavePath2)):
-        throwError(2, wavePath2)
+        throwError(1)
+    
+    #if not (isValidExtension(wavePath1)):
+    #    throwError(2, wavePath1)
+    #if not (isValidExtension(wavePath2)):
+    #    throwError(2, wavePath2)
 
-    #open up the files, make sure they are valid wav files
+    #open the files, make sure they are valid wav files
     try:
         wave1 = wave.open(wavePath1, 'r')
     except wave.Error:
@@ -101,21 +103,25 @@ def isMatch(wavePath1, wavePath2):
     except wave.Error:
         throwError(2, wavePath2)
 
+    #read the wave data
     wave1_results = scipy.io.wavfile.read(wavePath1)
     wave2_results = scipy.io.wavfile.read(wavePath2)
-
+    
+    #store the byte vectors for each wav file
     wave1_data = wave1_results[1]
     wave2_data = wave2_results[1]
     
+    #get number of samples and sample rate for each file
     wave1_numSamples = len(wave1_data)
     wave1_samplingRate = wave1_results[0]
-    
     wave2_numSamples = len(wave2_data)
     wave2_samplingRate = wave2_results[0]    
 
+    #convert the array to floats to avoid losses in precision
     wave1_data = wave1_data.astype(numpy.float)
     wave2_data = wave2_data.astype(numpy.float)
     
+    #convert the files to mono
     wave1_mono = stereoToMono(wave1_data)
     wave2_mono = stereoToMono(wave2_data)
 
@@ -147,9 +153,11 @@ def isMatch(wavePath1, wavePath2):
         if compareFreq(mag1, mag2, 1) == 1:
             matchCount += 1
   
+    #if song length is different, return no match
     if songLength(wave1) != songLength(wave2):
         return "NO MATCH\n"
     else:
+        #if at least half of the chunks are matches, return match
         if matchCount > (wave1_numSamples / chunkSize / 2):
             return "MATCH " + formatFileName(wavePath1) + " " + formatFileName(wavePath2) +"\n"
         else:
@@ -158,12 +166,10 @@ def isMatch(wavePath1, wavePath2):
     #exit with status of 0 as specified in directions
     exit(0)
 
-#make sure user has put in correct input
+#check for valid command line input
 if sys.argv[1] != '-f' or sys.argv[3] != '-f':
      throwError(1, "")
 
+#print match result
 print isMatch(sys.argv[2], sys.argv[4])
-
-#    nchannels, sampwidth, framerate, nframes, comptype, compname =  waveFile.getparams()
-#    print struct.unpack("HH", waveFile.readframes(1))
-#    print songLength(nframes, framerate)        
+      
