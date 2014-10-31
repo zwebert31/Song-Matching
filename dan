@@ -7,7 +7,8 @@ import numpy
 import os.path
 import scipy.io.wavfile
 import scipy.fftpack
-from os import listdir
+import os
+from subprocess import call
 
 #enable debug print
 DEBUG = 0
@@ -61,12 +62,16 @@ def stereoToMono(byteVector):
         mono.append(average)
     return mono
 
-def mp3ToWav(mp3FilePath):
-    path = "SoundFiles/tmp/"
-    call(['lame', '-V0',
-              os.path.join(path, mp3FilePath),
-              os.path.join(path, '%s.mp3' % mp3FilePath[:-4])
+def fileToWave(filePath):
+    if getExtension(filePath) == ".wav":
+        return filePath
+    tmpPath = "/tmp/wwavFiles"
+    formattedFileName = formatFileName(filePath)
+    outputPath = os.path.join(tmpPath, "%s.wav" % formattedFileName[:-4]) 
+    call(["./lame", "--decode",
+              filePath, outputPath
               ])
+    return outputPath
 
 #returns 1 if frequencies are a match, 0 if they are not
 def compareFreq(freq1, freq2, maxKeys):
@@ -206,18 +211,18 @@ if ((sys.argv[1] != '-f' and sys.argv[1] != '-d') or
 pathList1 = []
 pathList2 = []
 if (sys.argv[1] == '-f'):
-    pathList1.append(sys.argv[2])
+    pathList1.append(fileToWave(sys.argv[2]))
 elif (sys.argv[1] == '-d'):
     files = os.listdir(sys.argv[2])
     for f in files:
-        pathList1.append(os.path.join(sys.argv[2], f))        
+        pathList1.append(fileToWave(os.path.join(sys.argv[2], f)))        
 
 if (sys.argv[3] == '-f'):
-    pathList2.append(sys.argv[4])
+    pathList2.append(fileToWave(sys.argv[4]))
 elif (sys.argv[3] == '-d'):
     files = os.listdir(sys.argv[4])
     for f in files:
-        pathList2.append(os.path.join(sys.argv[4], f))        
+        pathList2.append(fileToWave(os.path.join(sys.argv[4], f)))        
 
 for s1 in pathList1:
     for s2 in pathList2:
@@ -225,4 +230,3 @@ for s1 in pathList1:
 
 #print match result
 #print isMatch(sys.argv[2], sys.argv[4])
-
