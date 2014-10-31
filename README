@@ -10,18 +10,31 @@ Zachary Webert - webert.z@husky.neu.edu
 Samuel Lynch - lynch.s@husky.neu.edu
 
 To run the program go to the directory which contains the python
-file called dan and enter the following command:
+file called dan and enter one of the following commands:
 
+To compare two audio files: 
 ./dan -f <pathname> -f <pathname>
 
-Each of the pathnames will be the paths of audio files.
-The file name must end in .wav and be in WAVE format.
-The file must have CD-quality parameters as specified below: 
-(AudioFormat 1, stereo, 16 bits per sample, 44.1 kHz sampling rate).
+To compare an audio file to a directory:
+./dan -f <pathname> -d <pathname>
+
+To compare a directory to an audio file:
+./dan -d <pathname> -f <pathname>
+
+To compare two directories:
+./dan -d <pathname> -d <pathname>
+
+Each of the pathnames will either be the path of an audio file or
+of a directory. Each individual file must either end in .wav
+and be in WAVE format or end in .mp3 and be in MP3 format.
+The .wav files must be in RIFF format, AudioFormat 1, stereo
+or mono, 8- or 16-bit samples with a sampling rate of 11.025, 22.05,
+44.1 or 48 kHz. The .mp3 files must be in MPEG-1 Audio Layer III format.
 
 No third party software was used.
 
-If the two files match, the text "MATCH <file1> <file2>" will be printed.
-If the two files do not match, the text "NO MATCH" will be printed.
+If two files match either from a file path or a directory of files
+the text "MATCH <file1> <file2>" will be printed.
+If two files do not match, nothing will be printed.
 If an incorrect command is entered, the text "ERROR: incorrect command line" will be printed.
 If an unsupported file type is detected, the text "ERROR: <file> is not a supported format" will be printed.
