@@ -51,7 +51,7 @@ def getExtension(path):
 #returns 1 if extension is valid, 0 if invalid
 def isValidExtension(path):
     extension = getExtension(path)
-    extensions = [".wav"]
+    extensions = [".wav", ".mp3"]
     return extension in extensions
 
 #convert a stereo byte vector to a mono signal
@@ -72,7 +72,7 @@ def fileToWave(filePath):
         os.makedirs(tmpPath)
 
     formattedFileName = formatFileName(filePath)
-    outputPath = os.path.join(tmpPath, "%s.wav" % formattedFileName[:-4])
+    outputPath = os.path.join(tmpPath, "%s.mp3" % formattedFileName[:-4])
  
     call(["./lame", "--decode", "--silent",
               filePath, outputPath
@@ -163,9 +163,6 @@ def isMatch(wavePath1, wavePath2):
         wave2_mono = stereoToMono(wave2_data)
     else:
         wave2_mono = wave2_data
-    
-    print wave1_mono[5];
-    print wave2_mono[5];
 
     # set chunk size to one second
     chunkSize = 44100 
@@ -203,18 +200,15 @@ def isMatch(wavePath1, wavePath2):
   
     #if song length is different, return no match
     if songLength(wave1) != songLength(wave2):
-        return "NO MATCH"
+        return 
     else:
         #if at least half of the chunks are matches, return match
         if matchCount >= 5:
-            return "MATCH " + formatFileName(wavePath1) + " " + formatFileName(wavePath2)
+            print "MATCH " + formatFileName(wavePath1) + " " + formatFileName(wavePath2)
         elif noMatchCount >= 5:
-            return "NO MATCH"
+            return 
         else:
-            return "NO MATCH"
-    
-    #exit with status of 0 as specified in directions
-    exit(0)
+            return 
 
 #MAIN
 #check for valid command line input
@@ -243,7 +237,9 @@ elif (sys.argv[3] == '-d'):
 
 for s1 in pathList1:
     for s2 in pathList2:
-        print isMatch(s1, s2)
+        isMatch(s1, s2)
 
+#exit with status of 0 as specified in directions
+exit(0)
 #print match result
 #print isMatch(sys.argv[2], sys.argv[4])
