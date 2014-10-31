@@ -36,5 +36,11 @@ No third party software was used.
 If two files match either from a file path or a directory of files
 the text "MATCH <file1> <file2>" will be printed.
 If two files do not match, nothing will be printed.
-If an incorrect command is entered, the text "ERROR: incorrect command line" will be printed.
-If an unsupported file type is detected, the text "ERROR: <file> is not a supported format" will be printed.
+If an incorrect command is entered, the text "ERROR: incorrect command line" 
+will be printed.
+If an unsupported file type is detected, the text "ERROR: <file> is not a 
+supported format" will be printed.
+
+Please note: The comparison of test directory D1 and D2 takes exactly 10
+minutes which means it is comparing the files takes about 12 seconds per
+file comparison
