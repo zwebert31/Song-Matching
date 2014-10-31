@@ -219,6 +219,10 @@ elif (sys.argv[3] == '-d'):
     for f in files:
         pathList2.append(os.path.join(sys.argv[4], f))        
 
+for s1 in pathList1:
+    for s2 in pathList2:
+        print isMatch(s1, s2)
+
 #print match result
-print isMatch(sys.argv[2], sys.argv[4])
+#print isMatch(sys.argv[2], sys.argv[4])
 
