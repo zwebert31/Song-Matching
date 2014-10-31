@@ -12,8 +12,8 @@ import scipy.fftpack
 DEBUG = 0
 
 #Returns the length of the waveFile in seconds
-def songLength(waveFile):
-    return waveFile.getnframes()/float(waveFile.getframerate())
+def songLength(waveFile):	
+    return waveFile.getnframes() / float(waveFile.getframerate())
 
 #Print an error to standard error
 #ERROR CODE 1: Invalid command line
@@ -60,6 +60,13 @@ def stereoToMono(byteVector):
         mono.append(average)
     return mono
 
+ def mp3ToWav(mp3FilePath):
+    path = "SoundFiles/tmp/"
+    call(['lame', '-V0',
+              os.path.join(path, mp3FilePath),
+              os.path.join(path, '%s.mp3' % mp3FilePath[:-4])
+              ])
+
 #returns 1 if frequencies are a match, 0 if they are not
 def compareFreq(freq1, freq2, maxKeys):
     #the peak index for each set of frequencies
@@ -87,7 +94,8 @@ def calculateMagnitude(fftArray):
     #calculate magnitude for each complex number in the FFT array
     for i in range (0, len(fftArray)):
         #calculate the magnitude: sqrt(a^2 + b^2)
-        magArray.append(numpy.sqrt(numpy.power(fftArray[i][0], 2) + numpy.power(fftArray[i][1], 2)))
+        magArray.append(numpy.sqrt(numpy.power(fftArray[i][0], 2)
+	                + numpy.power(fftArray[i][1], 2)))
     return magArray
 
 #returns MATCH if two songs match, NO MATCH if two songs do not match
@@ -138,6 +146,7 @@ def isMatch(wavePath1, wavePath2):
     # set chunk size to one second
     chunkSize = 44100
     
+    
     matchCount = 0 #number of chunk matches
 
     #iterate through chunks, perform fft and compare the chunks
@@ -169,7 +178,8 @@ def isMatch(wavePath1, wavePath2):
     else:
         #if at least half of the chunks are matches, return match
         if matchCount > (wave1_numSamples / chunkSize / 2):
-            return "MATCH " + formatFileName(wavePath1) + " " + formatFileName(wavePath2)
+            return "MATCH " + (formatFileName(wavePath1) + " " 
+                               + formatFileName(wavePath2))
         else:
             return "NO MATCH"
     
@@ -177,13 +187,14 @@ def isMatch(wavePath1, wavePath2):
     exit(0)
 
 #MAIN
-#check for valid command line input
+check for valid command line input
 if len(sys.argv) != 5:
     throwError(1)    
     
-if sys.argv[1] != '-f' or sys.argv[3] != '-f':
+if ((sys.argv[1] != '-f' and sys.argv[1] != '-d') or
+   (sys.argv[3] != '-f' and sys.argv[3] != '-d')):
     throwError(1)
 
-#print match result
+print match result
 print isMatch(sys.argv[2], sys.argv[4])
-      
+#mp3ToWave("SoundFiles/D1/Sor3508.mp3");
