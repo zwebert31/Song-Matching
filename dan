@@ -234,7 +234,7 @@ elif (sys.argv[1] == '-d'):
 if (sys.argv[3] == '-f'):
     pathList2.append(fileToWave(sys.argv[4]))
 elif (sys.argv[3] == '-d'):
-    if (os.path.exists(sys.argv[4])):
+    if ('a' == 'a'):#(os.path.exists(sys.argv[4])):
         files = os.listdir(sys.argv[4])
         for f in files:
             pathList2.append(fileToWave(os.path.join(sys.argv[4], f)))        
