@@ -224,16 +224,22 @@ pathList2 = []
 if (sys.argv[1] == '-f'):
     pathList1.append(fileToWave(sys.argv[2]))
 elif (sys.argv[1] == '-d'):
-    files = os.listdir(sys.argv[2])
-    for f in files:
-        pathList1.append(fileToWave(os.path.join(sys.argv[2], f)))        
+    if (os.path.exists(sys.argv[2])):
+        files = os.listdir(sys.argv[2])
+        for f in files:
+            pathList1.append(fileToWave(os.path.join(sys.argv[2], f)))        
+    else:
+        throwError(1)    
 
 if (sys.argv[3] == '-f'):
     pathList2.append(fileToWave(sys.argv[4]))
 elif (sys.argv[3] == '-d'):
-    files = os.listdir(sys.argv[4])
-    for f in files:
-        pathList2.append(fileToWave(os.path.join(sys.argv[4], f)))        
+    if (os.path.exists(sys.argv[4])):
+        files = os.listdir(sys.argv[4])
+        for f in files:
+            pathList2.append(fileToWave(os.path.join(sys.argv[4], f)))        
+    else:
+        throwError(1)
 
 for s1 in pathList1:
     for s2 in pathList2:
