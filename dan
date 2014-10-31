@@ -7,6 +7,7 @@ import numpy
 import os.path
 import scipy.io.wavfile
 import scipy.fftpack
+from os import listdir
 
 #enable debug print
 DEBUG = 0
@@ -195,13 +196,29 @@ def isMatch(wavePath1, wavePath2):
 
 #MAIN
 #check for valid command line input
-#if len(sys.argv) != 5:
-#    throwError(1)    
+if len(sys.argv) != 5:
+    throwError(1)    
     
-#if ((sys.argv[1] != '-f' and sys.argv[1] != '-d') or
-#   (sys.argv[3] != '-f' and sys.argv[3] != '-d')):
-#    throwError(1)
+if ((sys.argv[1] != '-f' and sys.argv[1] != '-d') or
+   (sys.argv[3] != '-f' and sys.argv[3] != '-d')):
+    throwError(1)
+
+pathList1 = []
+pathList2 = []
+if (sys.argv[1] == '-f'):
+    pathList1.append(sys.argv[2])
+elif (sys.argv[1] == '-d'):
+    files = os.listdir(sys.argv[2])
+    for f in files:
+        pathList1.append(os.path.join(sys.argv[2], f))        
+
+if (sys.argv[3] == '-f'):
+    pathList2.append(sys.argv[4])
+elif (sys.argv[3] == '-d'):
+    files = os.listdir(sys.argv[4])
+    for f in files:
+        pathList2.append(os.path.join(sys.argv[4], f))        
 
 #print match result
-#print isMatch(sys.argv[2], sys.argv[4])
-mp3ToWave("SoundFiles/D1/Sor3508.mp3");
+print isMatch(sys.argv[2], sys.argv[4])
+
