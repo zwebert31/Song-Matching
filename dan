@@ -8,6 +8,7 @@ import os.path
 import scipy.io.wavfile
 import scipy.fftpack
 import os
+import uuid
 from subprocess import call
 
 #enable debug print
@@ -64,12 +65,19 @@ def stereoToMono(byteVector):
 def fileToWave(filePath):
     if getExtension(filePath) == ".wav":
         return filePath
-    tmpPath = "/tmp/wwavFiles"
+
+    basePath = "/tmp/waveFiles"
+    tmpPath = os.path.join(basePath + str(uuid.uuid4()))
+    if not os.path.exists(tmpPath):
+        os.makedirs(tmpPath)
+
     formattedFileName = formatFileName(filePath)
-    outputPath = os.path.join(tmpPath, "%s.wav" % formattedFileName[:-4]) 
-    call(["./lame", "--decode",
+    outputPath = os.path.join(tmpPath, "%s.wav" % formattedFileName[:-4])
+ 
+    call(["./lame", "--decode", "--silent",
               filePath, outputPath
               ])
+
     return outputPath
 
 #returns 1 if frequencies are a match, 0 if they are not
