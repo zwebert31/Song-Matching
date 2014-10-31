@@ -139,6 +139,7 @@ def isMatch(wavePath1, wavePath2):
     chunkSize = 44100
     
     matchCount = 0 #number of chunk matches
+    noMatchCount = 0 #number of chunk non-match
 
     #iterate through chunks, perform fft and compare the chunks
     for i in range (0, wave1_numSamples / chunkSize):
@@ -162,14 +163,22 @@ def isMatch(wavePath1, wavePath2):
         #compare magnitudes
         if compareFreq(mag1, mag2, 1) == 1:
             matchCount += 1
+        else:
+            noMatchCount += 1
+
+        if (matchCount == 2 or noMatchCount == 2): 
+            break;
+        
   
     #if song length is different, return no match
     if songLength(wave1) != songLength(wave2):
         return "NO MATCH"
     else:
         #if at least half of the chunks are matches, return match
-        if matchCount > (wave1_numSamples / chunkSize / 2):
+        if matchCount >= 2:
             return "MATCH " + formatFileName(wavePath1) + " " + formatFileName(wavePath2)
+        elif noMatchCount >= 2:
+            return "NO MATCH"
         else:
             return "NO MATCH"
     
