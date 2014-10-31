@@ -7,6 +7,8 @@ import numpy
 import os.path
 import scipy.io.wavfile
 import scipy.fftpack
+import os
+from subprocess import call
 
 #enable debug print
 DEBUG = 0
@@ -60,12 +62,16 @@ def stereoToMono(byteVector):
         mono.append(average)
     return mono
 
-def mp3ToWav(mp3FilePath):
-    path = "SoundFiles/tmp/"
-    call(['lame', '-V0',
-              os.path.join(path, mp3FilePath),
-              os.path.join(path, '%s.mp3' % mp3FilePath[:-4])
+def fileToWav(filePath):
+    if getExtension(filePath) == ".wav":
+        return filePath
+    tmpPath = "/tmp/myWavFiles"
+    formattedFileName = formatFileName(filePath)
+    outputPath = os.path.join(tmpPath, "%s.wav" % formattedFileName[:-4]) 
+    call(["./lame", "--decode",
+              filePath, outputPath
               ])
+    return outputPath
 
 #returns 1 if frequencies are a match, 0 if they are not
 def compareFreq(freq1, freq2, maxKeys):
@@ -204,4 +210,4 @@ def isMatch(wavePath1, wavePath2):
 
 #print match result
 #print isMatch(sys.argv[2], sys.argv[4])
-mp3ToWave("SoundFiles/D1/Sor3508.mp3");
+fileToWav("SoundFiles/bad_guy_in_yer_bar.mp3");
