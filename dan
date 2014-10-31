@@ -57,7 +57,6 @@ def isValidExtension(path):
 def stereoToMono(byteVector):
     mono = [];
     for data in byteVector:
-        #average the two signals
         average = (data[0] + data[1])/2.0
         mono.append(average)
     return mono
@@ -96,7 +95,6 @@ def compareFreq(freq1, freq2, maxKeys):
 #returns a list of magnitudes from an FFT array
 def calculateMagnitude(fftArray):
     magArray = []
-
     #calculate magnitude for each complex number in the FFT array
     for i in range (0, len(fftArray)):
         #calculate the magnitude: sqrt(a^2 + b^2)
@@ -119,18 +117,20 @@ def isMatch(wavePath1, wavePath2):
     #open the files, make sure they are valid wav files
     try:
         wave1 = wave.open(wavePath1, 'r')
+        wave1Channels = wave1.getnchannels()
     except wave.Error:
         throwError(2, wavePath1)
 
     try:
         wave2 = wave.open(wavePath2, 'r')
+        wave2Channels = wave2.getnchannels()
     except wave.Error:
         throwError(2, wavePath2)
 
     #read the wave data
     wave1_results = scipy.io.wavfile.read(wavePath1)
     wave2_results = scipy.io.wavfile.read(wavePath2)
-    
+ 
     #store the byte vectors for each wav file
     wave1_data = wave1_results[1]
     wave2_data = wave2_results[1]
@@ -144,10 +144,20 @@ def isMatch(wavePath1, wavePath2):
     #convert the array to floats to avoid losses in precision
     wave1_data = wave1_data.astype(numpy.float)
     wave2_data = wave2_data.astype(numpy.float)
+     
     
     #convert the files to mono
-    wave1_mono = stereoToMono(wave1_data)
-    wave2_mono = stereoToMono(wave2_data)
+    if (wave1Channels == 2):
+        wave1_mono = stereoToMono(wave1_data)
+    else:
+        wave1_mono = wave1_data
+    if (wave2Channels == 2):
+        wave2_mono = stereoToMono(wave2_data)
+    else:
+        wave2_mono = wave2_data
+    
+    print wave1_mono[5];
+    print wave2_mono[5];
 
     # set chunk size to one second
     chunkSize = 44100 
@@ -165,17 +175,16 @@ def isMatch(wavePath1, wavePath2):
 	#print "starting fft"
 
 	#fft for wav1
-        fftResult1 = numpy.fft.fft(wave1_data[startBounds:endBounds])
-        
+        fftResult1 = numpy.fft.fft(wave1_mono[startBounds:endBounds])#wave1_data[startBounds:endBounds])
         #fft for wav2
-        fftResult2 = numpy.fft.fft(wave2_data[startBounds:endBounds])
-        
+        fftResult2 = numpy.fft.fft(wave2_mono[startBounds:endBounds])
+
         #calculate the magnitudes
-        mag1 = calculateMagnitude(fftResult1)
-        mag2 = calculateMagnitude(fftResult2)
+        #mag1 = calculateMagnitude(fftResult1)
+        #mag2 = calculateMagnitude(fftResult2)
         
         #compare magnitudes
-        if compareFreq(mag1, mag2, 1) == 1:
+        if compareFreq(fftResult1, fftResult2, 1) == 1:
             matchCount += 1
         else:
             noMatchCount += 1
