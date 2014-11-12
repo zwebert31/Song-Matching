@@ -74,7 +74,7 @@ def fileToWave(filePath):
     formattedFileName = formatFileName(filePath)
     outputPath = os.path.join(tmpPath, "%s.mp3" % formattedFileName[:-4])
  
-    call(["./lame", "--decode", "--silent",
+    call(["./lame","--resample", "44.1", "--decode", "--silent",
               filePath, outputPath
               ])
 
