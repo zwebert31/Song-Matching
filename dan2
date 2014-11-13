@@ -86,9 +86,8 @@ def fileToWave(filePath):
 #fftResult -> int
 def fftId(fft):
     fft = map(abs, fft)
-    #print fft    
-    return numpy.argmax(fft[0:len(fft)])
-
+    return numpy.argmax(fft[0:len(fft)]);    
+    
 #file -> {"dict":dictionary, "data":array}
 def fileToDict(path): 
     try:
@@ -110,15 +109,17 @@ def fileToDict(path):
     chunkSize = 4096 
     songDict = {}
     chunks = []
+    allFFT = []
     for i in range(0, sampleCount / chunkSize):
         startBounds = i * chunkSize
         endBounds = (i+1) * chunkSize
         fftChunk = numpy.fft.fft(wave_mono[startBounds:endBounds])          
+        allFFT.append(fftChunk);
         fingerPrint = fftId(fftChunk)
         chunks.append(fingerPrint)
         songDict.setdefault(fingerPrint,[]).append(i) 
     
-    return {"dict":songDict,"data":chunks}         
+    return {"dict":songDict,"data":chunks, "fft":allFFT}         
 
 #compare two of the same length, exact match
 def compareTwo(path1, path2):
@@ -139,23 +140,14 @@ def partialCompare(path1, path2):
     f2 = fileToDict(fileToWave(path2))
     match = 0;
     noMatch = 0
-    
-    print f1["data"][960:1060]
-    print f2["data"][370:470]
-    
+        
     f1Prints = f1["data"]
     f2Dict = f2["dict"]
     
-#    for i in range(0, len(f1Prints)):
-#        for j in range(0, len(f2["data"])):
-#            checkIfMatch(f1Prints, f2["data"], i, j, 100)
-    print f2["dict"]
-
     for i in range(0, len(f1Prints)):
         checkList = f2Dict.get(f1Prints[i], [])
-        for index in checkList:
-            l = 0      
-   #   checkIfMatch(f1Prints, f2["data"], i, index, 50)
+        for index in checkList:     
+            checkIfMatch(f1Prints, f2["data"], i, index, 50)
                 
      
     #checkIfMatch(data1[1], data2[1], 1, 1, 10);
@@ -175,7 +167,7 @@ def checkIfMatch(data1, data2, index1, index2, chunkCount):
         return 0
 
     for i in range (0, chunkCount):
-        if (data1[index1 + i] == data2[index2 + i]):
+        if (abs(data1[index1 + i] - data2[index2 + i]) < 10):
             if data1[index1 + i] == 0:
                 zeros += 1
             match += 1;
@@ -186,6 +178,7 @@ def checkIfMatch(data1, data2, index1, index2, chunkCount):
         print str(.09 * index1) + " " + str(.09 * index2) + " Match: " + str(match) + ", No Match: " + str(noMatch) + " zeros: " + str(zeros)
 
 
-partialCompare(sys.argv[1], sys.argv[2])
+#print fileToDict(sys.argv[1])["fft"][188];
+#partialCompare(sys.argv[1], sys.argv[2])
 #compareTwo(sys.argv[1], sys.argv[2])
             
