@@ -12,6 +12,15 @@ import uuid
 from subprocess import call
 from multiprocessing.pool import ThreadPool
 
+# How much our fftId can be off by and still be considered the same
+ALLOWED_MATCH_ERROR = 5
+
+# Minimum percentage of matches that must be found in order to signify a match
+MATCH_CERTAINTY = 30
+
+# Chunk size
+CHUNK_SIZE = 4096
+
 #Returns the length of the waveFile in seconds
 def songLength(waveFile):	
     return waveFile.getnframes() / float(waveFile.getframerate())
@@ -60,10 +69,7 @@ def left(x):
 
 #convert a stereo byte vector to a mono signal
 def stereoToMono(byteVector):
-    print "Start stereo to mono conversion"
-    arr = map(left, byteVector);
-    print "End Stereo to mono conversion: " + str(len(byteVector))
-    return arr
+    return map(left, byteVector)
 
 def fileToWave(filePath):
     if getExtension(filePath) == ".wav":
@@ -86,7 +92,7 @@ def fileToWave(filePath):
 #fftResult -> int
 def fftId(fft):
     fft = map(abs, fft)
-    return numpy.argmax(fft[0:len(fft)]);    
+    return numpy.argmax(fft[0:len(fft)])   
     
 #file -> {"dict":dictionary, "data":array}
 def fileToDict(path): 
@@ -100,25 +106,24 @@ def fileToDict(path):
     samplingRate = wave_results[0]
     sampleCount = len(wave_data)
 
-    print "Channels: " + str(channels) 
+    #print "Channels: " + str(channels) 
     if (channels == 2):
         wave_mono = wave_data.mean(axis=1)  
     else:
         wave_mono = wave_data
-    
-    chunkSize = 4096 
+ 
     songDict = {}
     chunks = []
     allFFT = []
-    for i in range(0, sampleCount / chunkSize):
-        startBounds = i * chunkSize
-        endBounds = (i+1) * chunkSize
+    for i in range(0, sampleCount / CHUNK_SIZE):
+        startBounds = i * CHUNK_SIZE
+        endBounds = (i+1) * CHUNK_SIZE
         fftChunk = numpy.fft.fft(wave_mono[startBounds:endBounds])          
         allFFT.append(fftChunk);
         fingerPrint = fftId(fftChunk)
         chunks.append(fingerPrint)
         songDict.setdefault(fingerPrint,[]).append(i) 
-    
+    #print "Fingerprints: " + str(chunks)    
     return {"dict":songDict,"data":chunks, "fft":allFFT}         
 
 #compare two of the same length, exact match
@@ -132,53 +137,80 @@ def compareTwo(path1, path2):
             match += 1;
         else:
             noMatch += 1;
-    print match
-    print noMatch
+    #print match
+    #print noMatch
+
+def roundedDictGet(dic, key, allowedError, default):
+     lower = key - allowedError;
+     upper = key + allowedError;
+     values = []
+     for i in range(lower, upper):
+         values.append(dic.get(i, default))
+     return values
 
 def partialCompare(path1, path2): 
     f1 = fileToDict(fileToWave(path1))
     f2 = fileToDict(fileToWave(path2))
-    match = 0;
+    match = 0
     noMatch = 0
-        
-    f1Prints = f1["data"]
+    compared = 0    
+    f1Data = f1["data"]
     f2Dict = f2["dict"]
+    matchFound = False
+    maxCertainty = -1
+    song1Time = 0
+    song2Time = 0
+    for i in range(0, len(f1Data)):
+        # Get a list of all indices from the second song which have the same audio fingerprint
+        checkList = roundedDictGet(f2Dict, f1Data[i], 5, [])
+	for value in checkList:
+            for index in value:
+                compared += 1
+                matchDict = checkIfMatch(f1Data, f2["data"], i, index, 50)     
+                if matchDict["isMatch"]:
+                    print "Found match with certainty: " + str(maxCertainty)
+                    print " at song 1 time: " + str(i * 0.094)
+                    print " and song 2 time: " + str(index * 0.094)
+                    # Get match with most certainty
+                    if matchDict["certainty"] > maxCertainty:
+                        maxCertainty = matchDict["certainty"]
+                        song1Time = i * 0.094
+                        song2Time = index * 0.094    
+                        print "Setting new certainty to: " + str(maxCertainty)
+                        print "Setting song 1 Time to: " + str(song1Time)
+                        print "Setting song 2 Time to: " + str(song2Time)
     
-    for i in range(0, len(f1Prints)):
-        checkList = f2Dict.get(f1Prints[i], [])
-        for index in checkList:     
-            checkIfMatch(f1Prints, f2["data"], i, index, 50)
-                
-     
-    #checkIfMatch(data1[1], data2[1], 1, 1, 10);
-    #for i in range(0, len(data1[1])):    
-    print len(f1["data"])    
-    
+    if maxCertainty == -1:
+        return False
+    else:
+        print "Certainty: " + str(maxCertainty)
+        print "Song 1 Time: " + str(song1Time)
+        print "Song 2 Time: " + str(song2Time)
+        return True
+
 def checkIfMatch(data1, data2, index1, index2, chunkCount):
-    match = 0;
-    noMatch = 0;
-    
+    match = 0
+    noMatch = 0
     data1_length = len(data1)
     data2_length = len(data2)
-    zeros = 0    
+    zeros = 0
+        
     if (data1_length <= index1 + chunkCount) or (data2_length <= index2 + chunkCount) or (index1 < 0) or (index2 < 0):
-
-#        print "out of bounds"
-        return 0
-
+        return { "isMatch": False, "certainty": 100}
+    
     for i in range (0, chunkCount):
-        if (abs(data1[index1 + i] - data2[index2 + i]) < 10):
+        diff = abs(data1[index1 + i] - data2[index2 + i])
+        if diff < ALLOWED_MATCH_ERROR:
             if data1[index1 + i] == 0:
                 zeros += 1
-            match += 1;
+            match += 1
         else:
-            noMatch += 1;
-    
-    if (match >= chunkCount / 2):
-        print str(.09 * index1) + " " + str(.09 * index2) + " Match: " + str(match) + ", No Match: " + str(noMatch) + " zeros: " + str(zeros)
+            noMatch += 1 
+   
+    certainty = (float(match) / float(chunkCount)) * 100
+ 
+    return { "isMatch": certainty >= MATCH_CERTAINTY, "certainty": certainty }
 
 
-#print fileToDict(sys.argv[1])["fft"][188];
-#partialCompare(sys.argv[1], sys.argv[2])
-#compareTwo(sys.argv[1], sys.argv[2])
+print partialCompare(sys.argv[1], sys.argv[2])
             
