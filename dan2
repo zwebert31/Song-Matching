@@ -10,13 +10,15 @@ import scipy.fftpack
 import os
 import uuid
 from subprocess import call
-from multiprocessing.pool import ThreadPool
+
+# Enables debug prints
+DEBUG = True
 
 # How much our fftId can be off by and still be considered the same
 ALLOWED_MATCH_ERROR = 5
 
 # Minimum percentage of matches that must be found in order to signify a match
-MATCH_CERTAINTY = 30
+MATCH_CERTAINTY = 60
 
 # Chunk size
 CHUNK_SIZE = 4096
@@ -140,6 +142,8 @@ def compareTwo(path1, path2):
     #print match
     #print noMatch
 
+# Get the values from a dictionary where the key is within the range:
+# key - allowedError to key + allowedError
 def roundedDictGet(dic, key, allowedError, default):
      lower = key - allowedError;
      upper = key + allowedError;
@@ -166,29 +170,31 @@ def partialCompare(path1, path2):
 	for value in checkList:
             for index in value:
                 compared += 1
-                matchDict = checkIfMatch(f1Data, f2["data"], i, index, 50)     
-                if matchDict["isMatch"]:
-                    print "Found match with certainty: " + str(maxCertainty)
-                    print " at song 1 time: " + str(i * 0.094)
-                    print " and song 2 time: " + str(index * 0.094)
+                matchInfo = getMatchInfo(f1Data, f2["data"], i, index, 50)     
+                if matchInfo["isMatch"]:
+                    if DEBUG:
+                        print "Found match with certainty: " + str(maxCertainty)
+                        print " at song 1 time: " + str(i * 0.094)
+                        print " and song 2 time: " + str(index * 0.094)
                     # Get match with most certainty
-                    if matchDict["certainty"] > maxCertainty:
-                        maxCertainty = matchDict["certainty"]
+                    if matchInfo["certainty"] > maxCertainty:
+                        maxCertainty = matchInfo["certainty"]
                         song1Time = i * 0.094
-                        song2Time = index * 0.094    
-                        print "Setting new certainty to: " + str(maxCertainty)
-                        print "Setting song 1 Time to: " + str(song1Time)
-                        print "Setting song 2 Time to: " + str(song2Time)
+                        song2Time = index * 0.094
+                        if DEBUG:    
+                            print "Setting new certainty to: " + str(maxCertainty)
+                            print "Setting song 1 Time to: " + str(song1Time)
+                            print "Setting song 2 Time to: " + str(song2Time)
     
     if maxCertainty == -1:
         return False
     else:
-        print "Certainty: " + str(maxCertainty)
-        print "Song 1 Time: " + str(song1Time)
-        print "Song 2 Time: " + str(song2Time)
+        print "Final Certainty: " + str(maxCertainty)
+        print "Final Song 1 Time: " + str(song1Time)
+        print "Final Song 2 Time: " + str(song2Time)
         return True
 
-def checkIfMatch(data1, data2, index1, index2, chunkCount):
+def getMatchInfo(data1, data2, index1, index2, chunkCount):
     match = 0
     noMatch = 0
     data1_length = len(data1)
