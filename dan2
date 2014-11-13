@@ -55,10 +55,13 @@ def isValidExtension(path):
 def average(x):
     return  (x[0] + x[1]) / 2
 
+def left(x):
+    return x[0]
+
 #convert a stereo byte vector to a mono signal
 def stereoToMono(byteVector):
     print "Start stereo to mono conversion"
-    arr = map(average, byteVector);
+    arr = map(left, byteVector);
     print "End Stereo to mono conversion: " + str(len(byteVector))
     return arr
 
@@ -82,31 +85,11 @@ def fileToWave(filePath):
 
 #fftResult -> int
 def fftId(fft):
-    return numpy.argmax(fft)
+    fft = map(abs, fft)
+    #print fft    
+    return numpy.argmax(fft[0:len(fft)])
 
-def split_list(alist, wanted_parts=1):
-    length = len(alist)
-    return [ alist[i*length // wanted_parts: (i+1)*length // wanted_parts] 
-             for i in range(wanted_parts) ]
-
-def stereo_to_mono(wave_data, numThreads):
-    pool = ThreadPool(processes=numThreads)
-    
-    sublists = split_list(wave_data, wanted_parts=16)
-    arr = []    
-    i = 0
-    for sublist in sublists:
-        async_result = pool.apply_async(stereoToMono, (wave_data, ))
-        wave_mono = async_result.get()
-        arr.push(wave_mono)
-        i += 1
-        print "got result " + i
-    
-    async_result = pool.apply_async(stereoToMono, (wave_data, ))
-    mono = async_result.get()
-    return mono
-
-#file -> dictionary
+#file -> {"dict":dictionary, "data":array}
 def fileToDict(path): 
     try:
         channels = wave.open(path, 'r').getnchannels()
@@ -117,35 +100,92 @@ def fileToDict(path):
     wave_data = wave_results[1]
     samplingRate = wave_results[0]
     sampleCount = len(wave_data)
-    #wave1_data = wave1_data.astype(numpy.float)
+
     print "Channels: " + str(channels) 
     if (channels == 2):
-        pool = ThreadPool(processes=1)
-        async_result = pool.apply_async(stereoToMono, (wave_data, ))
-        wave_mono = async_result.get()
-        #wave_mono = stereoToMono(wave_data) 
+        wave_mono = wave_data.mean(axis=1)  
     else:
         wave_mono = wave_data
     
-    chunkSize = 4096
+    chunkSize = 4096 
     songDict = {}
+    chunks = []
     for i in range(0, sampleCount / chunkSize):
         startBounds = i * chunkSize
         endBounds = (i+1) * chunkSize
-        fftChunk = numpy.fft.fft(wave_mono[startBounds:endBounds])
-        print fftChunk[0]
+        fftChunk = numpy.fft.fft(wave_mono[startBounds:endBounds])          
         fingerPrint = fftId(fftChunk)
-        
-        if (fftId in songDict):
-            songDict[fingerPrint] = songDict[fingerPrint].append(i)
-        else:       
-            songDict[fingerPrint] = [i]; 
+        chunks.append(fingerPrint)
+        songDict.setdefault(fingerPrint,[]).append(i) 
     
-    return songDict         
+    return {"dict":songDict,"data":chunks}         
 
+#compare two of the same length, exact match
 def compareTwo(path1, path2):
-    dict1 = fileToDict(fileToWave(path1))
-    dict2 = fileToDict(fileToWave(path2))
+    data1 = fileToDict(fileToWave(path1))
+    data2 = fileToDict(fileToWave(path2))
+    match = 0;
+    noMatch = 0
+    for i in range(0, len(data1["data"])):
+        if (data1["data"][i] == data2["data"][i]):
+            match += 1;
+        else:
+            noMatch += 1;
+    print match
+    print noMatch
 
-compareTwo(sys.argv[1], sys.argv[2])
+def partialCompare(path1, path2): 
+    f1 = fileToDict(fileToWave(path1))
+    f2 = fileToDict(fileToWave(path2))
+    match = 0;
+    noMatch = 0
+    
+    print f1["data"][960:1060]
+    print f2["data"][370:470]
+    
+    f1Prints = f1["data"]
+    f2Dict = f2["dict"]
+    
+#    for i in range(0, len(f1Prints)):
+#        for j in range(0, len(f2["data"])):
+#            checkIfMatch(f1Prints, f2["data"], i, j, 100)
+    print f2["dict"]
+
+    for i in range(0, len(f1Prints)):
+        checkList = f2Dict.get(f1Prints[i], [])
+        for index in checkList:
+            l = 0      
+   #   checkIfMatch(f1Prints, f2["data"], i, index, 50)
+                
+     
+    #checkIfMatch(data1[1], data2[1], 1, 1, 10);
+    #for i in range(0, len(data1[1])):    
+    print len(f1["data"])    
+    
+def checkIfMatch(data1, data2, index1, index2, chunkCount):
+    match = 0;
+    noMatch = 0;
+    
+    data1_length = len(data1)
+    data2_length = len(data2)
+    zeros = 0    
+    if (data1_length <= index1 + chunkCount) or (data2_length <= index2 + chunkCount) or (index1 < 0) or (index2 < 0):
+
+#        print "out of bounds"
+        return 0
+
+    for i in range (0, chunkCount):
+        if (data1[index1 + i] == data2[index2 + i]):
+            if data1[index1 + i] == 0:
+                zeros += 1
+            match += 1;
+        else:
+            noMatch += 1;
+    
+    if (match >= chunkCount / 2):
+        print str(.09 * index1) + " " + str(.09 * index2) + " Match: " + str(match) + ", No Match: " + str(noMatch) + " zeros: " + str(zeros)
+
+
+partialCompare(sys.argv[1], sys.argv[2])
+#compareTwo(sys.argv[1], sys.argv[2])
             
