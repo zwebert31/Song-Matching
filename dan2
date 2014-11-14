@@ -21,8 +21,10 @@ ALLOWED_MATCH_ERROR = 5
 MATCH_CERTAINTY = 60
 
 # Chunk size
-CHUNK_SIZE = 4096
-
+#CHUNK_SIZE = 4096
+CHUNK_SIZE = 4410
+#CHUNK_TIME = 0.09287
+CHUNK_TIME = .1
 #Returns the length of the waveFile in seconds
 def songLength(waveFile):	
     return waveFile.getnframes() / float(waveFile.getframerate())
@@ -74,8 +76,8 @@ def stereoToMono(byteVector):
     return map(left, byteVector)
 
 def fileToWave(filePath):
-    if getExtension(filePath) == ".wav":
-        return filePath
+   # if getExtension(filePath) == ".wav":
+   #     return filePath
 
     basePath = "/tmp/waveFiles"
     tmpPath = os.path.join(basePath + str(uuid.uuid4()))
@@ -117,9 +119,10 @@ def fileToDict(path):
     songDict = {}
     chunks = []
     allFFT = []
+    print "SampleCount: " + str(sampleCount)
     for i in range(0, sampleCount / CHUNK_SIZE):
         startBounds = i * CHUNK_SIZE
-        endBounds = (i+1) * CHUNK_SIZE
+        endBounds = (i+1) * CHUNK_SIZE 
         fftChunk = numpy.fft.fft(wave_mono[startBounds:endBounds])          
         allFFT.append(fftChunk);
         fingerPrint = fftId(fftChunk)
@@ -127,20 +130,6 @@ def fileToDict(path):
         songDict.setdefault(fingerPrint,[]).append(i) 
     #print "Fingerprints: " + str(chunks)    
     return {"dict":songDict,"data":chunks, "fft":allFFT}         
-
-#compare two of the same length, exact match
-def compareTwo(path1, path2):
-    data1 = fileToDict(fileToWave(path1))
-    data2 = fileToDict(fileToWave(path2))
-    match = 0;
-    noMatch = 0
-    for i in range(0, len(data1["data"])):
-        if (data1["data"][i] == data2["data"][i]):
-            match += 1;
-        else:
-            noMatch += 1;
-    #print match
-    #print noMatch
 
 # Get the values from a dictionary where the key is within the range:
 # key - allowedError to key + allowedError
@@ -174,13 +163,13 @@ def partialCompare(path1, path2):
                 if matchInfo["isMatch"]:
                     if DEBUG:
                         print "Found match with certainty: " + str(maxCertainty)
-                        print " at song 1 time: " + str(i * 0.094)
-                        print " and song 2 time: " + str(index * 0.094)
+                        print " at song 1 time: " + str(i * CHUNK_TIME)
+                        print " and song 2 time: " + str(index * CHUNK_TIME)
                     # Get match with most certainty
                     if matchInfo["certainty"] > maxCertainty:
                         maxCertainty = matchInfo["certainty"]
-                        song1Time = i * 0.094
-                        song2Time = index * 0.094
+                        song1Time = i * CHUNK_TIME
+                        song2Time = index * CHUNK_TIME
                         if DEBUG:    
                             print "Setting new certainty to: " + str(maxCertainty)
                             print "Setting song 1 Time to: " + str(song1Time)
@@ -202,7 +191,7 @@ def getMatchInfo(data1, data2, index1, index2, chunkCount):
     zeros = 0
         
     if (data1_length <= index1 + chunkCount) or (data2_length <= index2 + chunkCount) or (index1 < 0) or (index2 < 0):
-        return { "isMatch": False, "certainty": 100}
+        return { "isMatch": False, "certainty": 100 }
     
     for i in range (0, chunkCount):
         diff = abs(data1[index1 + i] - data2[index2 + i])
@@ -214,9 +203,7 @@ def getMatchInfo(data1, data2, index1, index2, chunkCount):
             noMatch += 1 
    
     certainty = (float(match) / float(chunkCount)) * 100
- 
+     
     return { "isMatch": certainty >= MATCH_CERTAINTY, "certainty": certainty }
 
-
-print partialCompare(sys.argv[1], sys.argv[2])
-            
+print partialCompare(sys.argv[1], sys.argv[2])        
