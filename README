@@ -33,9 +33,11 @@ or mono, 8- or 16-bit samples with a sampling rate of 11.025, 22.05,
 
 No third party software was used.
 
-If two files match either from a file path or a directory of files
-the text "MATCH <file1> <file2>" will be printed.
-If two files do not match, nothing will be printed.
+If two files match either from a file path or a directory of files the text:
+"MATCH <file1> <file2> <time of match in file1> <time of match in file2>"
+will be printed. Two files will be considered a match if they share 
+a segment of 5 seconds or more. 
+If two files share no segments, nothing will be printed.
 If an incorrect command is entered, the text "ERROR: incorrect command line" 
 will be printed.
 If an unsupported file type is detected, the text "ERROR: <file> is not a 
