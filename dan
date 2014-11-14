@@ -11,8 +11,21 @@ import os
 import uuid
 from subprocess import call
 
-#enable debug print
-DEBUG = 0
+# Enable / disables debug prints
+DEBUG = False
+
+# How much our fftId can be off by and still be considered the same
+ALLOWED_MATCH_ERROR = 5
+
+# Minimum percentage of matches that must 
+# be found in order to signify a match
+MATCH_CERTAINTY = 60
+
+# Chunk size
+CHUNK_SIZE = 4410
+
+# Time per chunk
+CHUNK_TIME = .1
 
 #Returns the length of the waveFile in seconds
 def songLength(waveFile):	
@@ -31,7 +44,7 @@ def throwError(code, arg=""):
         sys.stderr.write("ERROR: there was a problem\n")
     exit(code)
 
-#returns the formatted name of the file
+#returns the relative file name of the file
 def formatFileName(path):
     tmp = []
 
@@ -56,12 +69,11 @@ def isValidExtension(path):
 
 #convert a stereo byte vector to a mono signal
 def stereoToMono(byteVector):
-    mono = [];
-    for data in byteVector:
-        average = (data[0] + data[1])/2.0
-        mono.append(average)
-    return mono
+    return map(left, byteVector)
 
+# Returns a path to a wav file.
+# If the file is a wav file already, the input path is returned
+# Otherwise the file is converted to a .wav file and stored in a /tmp path
 def fileToWave(filePath):
     if getExtension(filePath) == ".wav":
         return filePath
@@ -80,135 +92,123 @@ def fileToWave(filePath):
 
     return outputPath
 
-#returns 1 if frequencies are a match, 0 if they are not
-def compareFreq(freq1, freq2, maxKeys):
-    #the peak index for each set of frequencies
-    keyIndex1 = 0;
-    keyIndex2 = 0;
-
-    #find the peak index
-    for i in range(1,len(freq1)/2):
-        if(freq1[i] > freq1[keyIndex1]): 
-            keyIndex1 = i
-        
-        if(freq2[i] > freq2[keyIndex2]): 
-            keyIndex2 = i
+#fftResult -> int
+def fftId(fft):
+    fft = map(abs, fft)
+    return numpy.argmax(fft[0:len(fft)])   
     
-    #if the key index is the same, return a match        
-    if (keyIndex1 == keyIndex2):
-        return 1;
+#file -> {"dict":dictionary, "data":array}
+def fileToDict(path): 
+    try:
+        channels = wave.open(path, 'r').getnchannels()
+    except wave.Error:
+        throwError(2, path)
+
+    wave_results = scipy.io.wavfile.read(path)
+    wave_data = wave_results[1]
+    samplingRate = wave_results[0]
+    sampleCount = len(wave_data)
+
+    if (channels == 2):
+        wave_mono = wave_data.mean(axis=1)  
     else:
-        return 0; 
-
-#returns a list of magnitudes from an FFT array
-def calculateMagnitude(fftArray):
-    magArray = []
-    #calculate magnitude for each complex number in the FFT array
-    for i in range (0, len(fftArray)):
-        #calculate the magnitude: sqrt(a^2 + b^2)
-        magArray.append(numpy.sqrt(numpy.power(fftArray[i][0], 2)
-	                + numpy.power(fftArray[i][1], 2)))
-    return magArray
-
-#returns MATCH if two songs match, NO MATCH if two songs do not match
-def isMatch(wavePath1, wavePath2):
-    
-    #check for file exists
-    if not os.path.isfile(wavePath1) or not os.path.isfile(wavePath2):
-        throwError(1)
-    
-    if not (isValidExtension(wavePath1)):
-        throwError(2, wavePath1)
-    if not (isValidExtension(wavePath2)):
-        throwError(2, wavePath2)
-
-    #open the files, make sure they are valid wav files
-    try:
-        wave1 = wave.open(wavePath1, 'r')
-        wave1Channels = wave1.getnchannels()
-    except wave.Error:
-        throwError(2, wavePath1)
-
-    try:
-        wave2 = wave.open(wavePath2, 'r')
-        wave2Channels = wave2.getnchannels()
-    except wave.Error:
-        throwError(2, wavePath2)
-
-    #read the wave data
-    wave1_results = scipy.io.wavfile.read(wavePath1)
-    wave2_results = scipy.io.wavfile.read(wavePath2)
+        wave_mono = wave_data
  
-    #store the byte vectors for each wav file
-    wave1_data = wave1_results[1]
-    wave2_data = wave2_results[1]
-    
-    #get number of samples and sample rate for each file
-    wave1_numSamples = len(wave1_data)
-    wave1_samplingRate = wave1_results[0]
-    wave2_numSamples = len(wave2_data)
-    wave2_samplingRate = wave2_results[0]    
+    songDict = {}
+    chunks = []
+    allFFT = []
+    for i in range(0, sampleCount / CHUNK_SIZE):
+        startBounds = i * CHUNK_SIZE
+        endBounds = (i+1) * CHUNK_SIZE 
+        fftChunk = numpy.fft.fft(wave_mono[startBounds:endBounds])          
+        allFFT.append(fftChunk);
+        fingerPrint = fftId(fftChunk)
+        chunks.append(fingerPrint)
+        songDict.setdefault(fingerPrint,[]).append(i)  
+    return {"dict":songDict,"data":chunks, "fft":allFFT}         
 
-    #convert the array to floats to avoid losses in precision
-    wave1_data = wave1_data.astype(numpy.float)
-    wave2_data = wave2_data.astype(numpy.float)
+# Get the values from a dictionary where the key is within the range:
+# key - allowedError to key + allowedError
+def roundedDictGet(dic, key, allowedError, default):
+     lower = key - allowedError;
+     upper = key + allowedError;
+     values = []
+     for i in range(lower, upper):
+         values.append(dic.get(i, default))
+     return values
+
+# Determines if path1 matches path2
+def isMatch(path1, path2):
+    #check for file exists
+    if not os.path.isfile(path1) or not os.path.isfile(path2):
+        throwError(1)
+
+    if not (isValidExtension(path1)):
+        throwError(2, wavePath1)
+    if not (isValidExtension(path2)):
+        throwError(2, path2)
+ 
+    f1 = fileToDict(path1)
+    f2 = fileToDict(path2)
+
+    match = 0
+    noMatch = 0
+    compared = 0    
+    f1Data = f1["data"]
+    f2Dict = f2["dict"]
+    matchFound = False
+    maxCertainty = -1
+    song1Time = 0
+    song2Time = 0
+
+    for i in range(0, len(f1Data)):
+        # Get a list of all indices from the second song
+        # which have the same audio fingerprint
+        checkList = roundedDictGet(f2Dict, f1Data[i], 5, [])
+	for value in checkList:
+            for index in value:
+                compared += 1
+                matchInfo = getMatchInfo(f1Data, f2["data"], i, index, 50)     
+                if matchInfo["isMatch"]:
+                    # Get match with most certainty
+                    if matchInfo["certainty"] > maxCertainty:
+                        maxCertainty = matchInfo["certainty"]
+                        song1Time = i * CHUNK_TIME
+                        song2Time = index * CHUNK_TIME
+    
+    if maxCertainty == -1:
+        return False
+    else:
+        if DEBUG:
+            print "Final Certainty: " + str(maxCertainty)
+        print ("MATCH " + formatFileName(path1) + " " +
+               formatFileName(path2) + " " +
+               str(song1Time) + " " + str(song2Time)) 
+        return True
+
+# Gets info about a match including if it is a match and the % certainty
+def getMatchInfo(data1, data2, index1, index2, chunkCount):
+    match = 0
+    noMatch = 0
+    data1_length = len(data1)
+    data2_length = len(data2)
+        
+    if ((data1_length <= index1 + chunkCount)
+         or (data2_length <= index2 + chunkCount) 
+         or (index1 < 0) or (index2 < 0)):
+        return { "isMatch": False, "certainty": 100 }
+    
+    for i in range (0, chunkCount):
+        diff = abs(data1[index1 + i] - data2[index2 + i])
+        if diff < ALLOWED_MATCH_ERROR:
+            match += 1
+        else:
+            noMatch += 1 
+   
+    certainty = (float(match) / float(chunkCount)) * 100
      
-    
-    #convert the files to mono
-    if (wave1Channels == 2):
-        wave1_mono = stereoToMono(wave1_data)
-    else:
-        wave1_mono = wave1_data
-    if (wave2Channels == 2):
-        wave2_mono = stereoToMono(wave2_data)
-    else:
-        wave2_mono = wave2_data
-
-    # set chunk size to one second
-    chunkSize = 44100 
-    
-    matchCount = 0 #number of chunk matches
-    noMatchCount = 0 #number of chunk non-match
-
-    #iterate through chunks, perform fft and compare the chunks
-    for i in range (0, wave1_numSamples / chunkSize):
-        
-        startBounds = i * chunkSize
-
-        endBounds = (i + 1) * chunkSize
-        
-	#print "starting fft"
-
-	#fft for wav1
-        fftResult1 = numpy.fft.fft(wave1_mono[startBounds:endBounds])#wave1_data[startBounds:endBounds])
-        #fft for wav2
-        fftResult2 = numpy.fft.fft(wave2_mono[startBounds:endBounds])
-
-        #calculate the magnitudes
-        #mag1 = calculateMagnitude(fftResult1)
-        #mag2 = calculateMagnitude(fftResult2)
-        
-        #compare magnitudes
-        if compareFreq(fftResult1, fftResult2, 1) == 1:
-            matchCount += 1
-        else:
-            noMatchCount += 1
-
-        if (matchCount == 5 or noMatchCount == 5): 
-            break;
-        
-  
-    #if song length is different, return no match
-    if songLength(wave1) != songLength(wave2):
-        return 
-    else:
-        #if at least half of the chunks are matches, return match
-        if matchCount >= 5:
-            print "MATCH " + formatFileName(wavePath1) + " " + formatFileName(wavePath2)
-        elif noMatchCount >= 5:
-            return 
-        else:
-            return 
+    return { "isMatch": certainty >= MATCH_CERTAINTY,
+             "certainty": certainty }
 
 #MAIN
 #check for valid command line input
@@ -224,17 +224,16 @@ pathList2 = []
 if (sys.argv[1] == '-f'):
     pathList1.append(fileToWave(sys.argv[2]))
 elif (sys.argv[1] == '-d'):
-    if (os.path.exists(sys.argv[2])):
+    if os.path.exists(sys.argv[2]) and os.path.isdir(sys.argv[2]):
         files = os.listdir(sys.argv[2])
         for f in files:
             pathList1.append(fileToWave(os.path.join(sys.argv[2], f)))        
     else:
         throwError(1)    
-
 if (sys.argv[3] == '-f'):
     pathList2.append(fileToWave(sys.argv[4]))
 elif (sys.argv[3] == '-d'):
-    if ('a' == 'a'):#(os.path.exists(sys.argv[4])):
+    if os.path.exists(sys.argv[4]) and os.path.isdir(sys.argv[4]):
         files = os.listdir(sys.argv[4])
         for f in files:
             pathList2.append(fileToWave(os.path.join(sys.argv[4], f)))        
@@ -247,5 +246,3 @@ for s1 in pathList1:
 
 #exit with status of 0 as specified in directions
 exit(0)
-#print match result
-#print isMatch(sys.argv[2], sys.argv[4])

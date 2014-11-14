@@ -11,7 +11,7 @@ import os
 import uuid
 from subprocess import call
 
-# Enables debug prints
+# Enable / disables debug prints
 DEBUG = False
 
 # How much our fftId can be off by and still be considered the same
@@ -43,7 +43,7 @@ def throwError(code, arg=""):
         sys.stderr.write("ERROR: there was a problem\n")
     exit(code)
 
-#returns the formatted name of the file
+#returns the relative file name of the file
 def formatFileName(path):
     tmp = []
 
@@ -66,16 +66,13 @@ def isValidExtension(path):
     extensions = [".wav", ".mp3"]
     return extension in extensions
 
-def average(x):
-    return  (x[0] + x[1]) / 2
-
-def left(x):
-    return x[0]
-
 #convert a stereo byte vector to a mono signal
 def stereoToMono(byteVector):
     return map(left, byteVector)
 
+# Returns a path to a wav file.
+# If the file is a wav file already, the input path is returned
+# Otherwise the file is converted to a .wav file and stored in a /tmp path
 def fileToWave(filePath):
     if getExtension(filePath) == ".wav":
         return filePath
@@ -111,7 +108,6 @@ def fileToDict(path):
     samplingRate = wave_results[0]
     sampleCount = len(wave_data)
 
-    #print "Channels: " + str(channels) 
     if (channels == 2):
         wave_mono = wave_data.mean(axis=1)  
     else:
@@ -140,11 +136,12 @@ def roundedDictGet(dic, key, allowedError, default):
          values.append(dic.get(i, default))
      return values
 
+# Determines if path1 matches path2
 def isMatch(path1, path2):
     #check for file exists
     if not os.path.isfile(path1) or not os.path.isfile(path2):
         throwError(1)
-    
+
     if not (isValidExtension(path1)):
         throwError(2, wavePath1)
     if not (isValidExtension(path2)):
@@ -152,6 +149,7 @@ def isMatch(path1, path2):
  
     f1 = fileToDict(path1)
     f2 = fileToDict(path2)
+
     match = 0
     noMatch = 0
     compared = 0    
@@ -161,8 +159,10 @@ def isMatch(path1, path2):
     maxCertainty = -1
     song1Time = 0
     song2Time = 0
+
     for i in range(0, len(f1Data)):
-        # Get a list of all indices from the second song which have the same audio fingerprint
+        # Get a list of all indices from the second song
+        # which have the same audio fingerprint
         checkList = roundedDictGet(f2Dict, f1Data[i], 5, [])
 	for value in checkList:
             for index in value:
@@ -193,12 +193,12 @@ def isMatch(path1, path2):
         print "MATCH " + formatFileName(path1) + " " + formatFileName(path2) + " " + str(song1Time) + " " + str(song2Time) 
         return True
 
+# Gets info about a match including if it is a match and the % certainty
 def getMatchInfo(data1, data2, index1, index2, chunkCount):
     match = 0
     noMatch = 0
     data1_length = len(data1)
     data2_length = len(data2)
-    zeros = 0
         
     if (data1_length <= index1 + chunkCount) or (data2_length <= index2 + chunkCount) or (index1 < 0) or (index2 < 0):
         return { "isMatch": False, "certainty": 100 }
@@ -206,8 +206,6 @@ def getMatchInfo(data1, data2, index1, index2, chunkCount):
     for i in range (0, chunkCount):
         diff = abs(data1[index1 + i] - data2[index2 + i])
         if diff < ALLOWED_MATCH_ERROR:
-            if data1[index1 + i] == 0:
-                zeros += 1
             match += 1
         else:
             noMatch += 1 
@@ -215,8 +213,6 @@ def getMatchInfo(data1, data2, index1, index2, chunkCount):
     certainty = (float(match) / float(chunkCount)) * 100
      
     return { "isMatch": certainty >= MATCH_CERTAINTY, "certainty": certainty }
-
-#print "FilePath: " + fileToWave(sys.argv[2])
 
 #MAIN
 #check for valid command line input
