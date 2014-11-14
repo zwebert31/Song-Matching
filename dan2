@@ -12,7 +12,7 @@ import uuid
 from subprocess import call
 
 # Enables debug prints
-DEBUG = True
+DEBUG = False
 
 # How much our fftId can be off by and still be considered the same
 ALLOWED_MATCH_ERROR = 5
@@ -21,10 +21,11 @@ ALLOWED_MATCH_ERROR = 5
 MATCH_CERTAINTY = 60
 
 # Chunk size
-#CHUNK_SIZE = 4096
 CHUNK_SIZE = 4410
-#CHUNK_TIME = 0.09287
+
+# Time per chunk
 CHUNK_TIME = .1
+
 #Returns the length of the waveFile in seconds
 def songLength(waveFile):	
     return waveFile.getnframes() / float(waveFile.getframerate())
@@ -76,8 +77,8 @@ def stereoToMono(byteVector):
     return map(left, byteVector)
 
 def fileToWave(filePath):
-   # if getExtension(filePath) == ".wav":
-   #     return filePath
+    if getExtension(filePath) == ".wav":
+        return filePath
 
     basePath = "/tmp/waveFiles"
     tmpPath = os.path.join(basePath + str(uuid.uuid4()))
@@ -119,7 +120,6 @@ def fileToDict(path):
     songDict = {}
     chunks = []
     allFFT = []
-    print "SampleCount: " + str(sampleCount)
     for i in range(0, sampleCount / CHUNK_SIZE):
         startBounds = i * CHUNK_SIZE
         endBounds = (i+1) * CHUNK_SIZE 
@@ -127,8 +127,7 @@ def fileToDict(path):
         allFFT.append(fftChunk);
         fingerPrint = fftId(fftChunk)
         chunks.append(fingerPrint)
-        songDict.setdefault(fingerPrint,[]).append(i) 
-    #print "Fingerprints: " + str(chunks)    
+        songDict.setdefault(fingerPrint,[]).append(i)  
     return {"dict":songDict,"data":chunks, "fft":allFFT}         
 
 # Get the values from a dictionary where the key is within the range:
@@ -141,7 +140,7 @@ def roundedDictGet(dic, key, allowedError, default):
          values.append(dic.get(i, default))
      return values
 
-def partialCompare(path1, path2): 
+def isMatch(path1, path2): 
     f1 = fileToDict(fileToWave(path1))
     f2 = fileToDict(fileToWave(path2))
     match = 0
@@ -178,9 +177,11 @@ def partialCompare(path1, path2):
     if maxCertainty == -1:
         return False
     else:
-        print "Final Certainty: " + str(maxCertainty)
-        print "Final Song 1 Time: " + str(song1Time)
-        print "Final Song 2 Time: " + str(song2Time)
+        if DEBUG:
+            print "Final Certainty: " + str(maxCertainty)
+            print "Final Song 1 Time: " + str(song1Time)
+            print "Final Song 2 Time: " + str(song2Time)
+        print "MATCH " + formatFileName(path1) + " " + formatFileName(path2) + str(song1Time) + " " + str(song2Time) 
         return True
 
 def getMatchInfo(data1, data2, index1, index2, chunkCount):
@@ -206,4 +207,42 @@ def getMatchInfo(data1, data2, index1, index2, chunkCount):
      
     return { "isMatch": certainty >= MATCH_CERTAINTY, "certainty": certainty }
 
-print partialCompare(sys.argv[1], sys.argv[2])        
+#MAIN
+#check for valid command line input
+if len(sys.argv) != 5:
+    throwError(1)    
+    
+if ((sys.argv[1] != '-f' and sys.argv[1] != '-d') or
+   (sys.argv[3] != '-f' and sys.argv[3] != '-d')):
+    throwError(1)
+
+pathList1 = []
+pathList2 = []
+if (sys.argv[1] == '-f'):
+    pathList1.append(fileToWave(sys.argv[2]))
+elif (sys.argv[1] == '-d'):
+    if os.path.exists(sys.argv[2]) and os.path.isdir(sys.argv[2]):
+        files = os.listdir(sys.argv[2])
+        for f in files:
+            pathList1.append(fileToWave(os.path.join(sys.argv[2], f)))        
+    else:
+        throwError(1)    
+
+if (sys.argv[3] == '-f'):
+    pathList2.append(fileToWave(sys.argv[4]))
+elif (sys.argv[3] == '-d'):
+    if os.path.exists(sys.argv[4]) and os.path.isdir(sys.argv[4]):
+        files = os.listdir(sys.argv[4])
+        for f in files:
+            pathList2.append(fileToWave(os.path.join(sys.argv[4], f)))        
+    else:
+        throwError(1)
+
+for s1 in pathList1:
+    for s2 in pathList2:
+        isMatch(s1, s2)
+
+#exit with status of 0 as specified in directions
+exit(0)
+
+
