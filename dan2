@@ -181,7 +181,8 @@ def isMatch(path1, path2):
             print "Final Certainty: " + str(maxCertainty)
             print "Final Song 1 Time: " + str(song1Time)
             print "Final Song 2 Time: " + str(song2Time)
-        print "MATCH " + formatFileName(path1) + " " + formatFileName(path2) + str(song1Time) + " " + str(song2Time) 
+        print "MATCH " + formatFileName(path1) + " " + formatFileName(path2) 
+                       + " " + str(song1Time) + " " + str(song2Time) 
         return True
 
 def getMatchInfo(data1, data2, index1, index2, chunkCount):
@@ -191,7 +192,8 @@ def getMatchInfo(data1, data2, index1, index2, chunkCount):
     data2_length = len(data2)
     zeros = 0
         
-    if (data1_length <= index1 + chunkCount) or (data2_length <= index2 + chunkCount) or (index1 < 0) or (index2 < 0):
+    if (data1_length <= index1 + chunkCount) or (data2_length <= index2 + chunkCount)
+       or (index1 < 0) or (index2 < 0):
         return { "isMatch": False, "certainty": 100 }
     
     for i in range (0, chunkCount):
