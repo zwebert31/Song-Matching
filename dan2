@@ -191,8 +191,7 @@ def getMatchInfo(data1, data2, index1, index2, chunkCount):
     data2_length = len(data2)
     zeros = 0
         
-    if (data1_length <= index1 + chunkCount) or (data2_length <= index2 + chunkCount)
-       or (index1 < 0) or (index2 < 0):
+    if (data1_length <= index1 + chunkCount) or (data2_length <= index2 + chunkCount) or (index1 < 0) or (index2 < 0):
         return { "isMatch": False, "certainty": 100 }
     
     for i in range (0, chunkCount):
