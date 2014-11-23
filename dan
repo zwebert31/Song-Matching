@@ -27,6 +27,8 @@ CHUNK_SIZE = 4410
 # Time per chunk
 CHUNK_TIME = .1
 
+songDataCache = {}
+
 #Returns the length of the waveFile in seconds
 def songLength(waveFile):	
     return waveFile.getnframes() / float(waveFile.getframerate())
@@ -98,7 +100,9 @@ def fftId(fft):
     return numpy.argmax(fft[0:len(fft)])   
     
 #file -> {"dict":dictionary, "data":array}
-def fileToDict(path): 
+def fileToDict(path):
+    if path in songDataCache:
+        return songDataCache[path]
     try:
         channels = wave.open(path, 'r').getnchannels()
     except wave.Error:
@@ -125,7 +129,9 @@ def fileToDict(path):
         fingerPrint = fftId(fftChunk)
         chunks.append(fingerPrint)
         songDict.setdefault(fingerPrint,[]).append(i)  
-    return {"dict":songDict,"data":chunks, "fft":allFFT}         
+    result = { "dict":songDict, "data":chunks, "fft":allFFT }
+    songDataCache[path] = result
+    return result        
 
 # Get the values from a dictionary where the key is within the range:
 # key - allowedError to key + allowedError
