@@ -2,11 +2,9 @@
 
 import sys
 import wave
-import struct
 import numpy
 import os.path
 import scipy.io.wavfile
-import scipy.fftpack
 import os
 import uuid
 from subprocess import call
@@ -27,11 +25,9 @@ CHUNK_SIZE = 4410
 # Time per chunk
 CHUNK_TIME = .1
 
+# Cache which stores data about each song
+# Key is the absolute path and value is the data
 songDataCache = {}
-
-#Returns the length of the waveFile in seconds
-def songLength(waveFile):	
-    return waveFile.getnframes() / float(waveFile.getframerate())
 
 #Print an error to standard error
 #ERROR CODE 1: Invalid command line
@@ -69,10 +65,6 @@ def isValidExtension(path):
     extensions = [".wav", ".mp3"]
     return extension in extensions
 
-#convert a stereo byte vector to a mono signal
-def stereoToMono(byteVector):
-    return map(left, byteVector)
-
 # Returns a path to a wav file.
 # If the file is a wav file already, the input path is returned
 # Otherwise the file is converted to a .wav file and stored in a /tmp path
@@ -82,6 +74,7 @@ def fileToWave(filePath):
 
     basePath = "/tmp/waveFiles"
     tmpPath = os.path.join(basePath + str(uuid.uuid4()))
+
     if not os.path.exists(tmpPath):
         os.makedirs(tmpPath)
 
@@ -103,6 +96,7 @@ def fftId(fft):
 def fileToDict(path):
     if path in songDataCache:
         return songDataCache[path]
+
     try:
         channels = wave.open(path, 'r').getnchannels()
     except wave.Error:
@@ -128,9 +122,11 @@ def fileToDict(path):
         allFFT.append(fftChunk);
         fingerPrint = fftId(fftChunk)
         chunks.append(fingerPrint)
-        songDict.setdefault(fingerPrint,[]).append(i)  
+        songDict.setdefault(fingerPrint,[]).append(i)
+  
     result = { "dict":songDict, "data":chunks, "fft":allFFT }
     songDataCache[path] = result
+
     return result        
 
 # Get the values from a dictionary where the key is within the range:
@@ -181,6 +177,9 @@ def isMatch(path1, path2):
                         maxCertainty = matchInfo["certainty"]
                         song1Time = i * CHUNK_TIME
                         song2Time = index * CHUNK_TIME
+                        if DEBUG:
+                            print "Setting song1Time to " + str(song1Time)
+                            print "Setting song2Time to " + str(song2Time)
     
     if maxCertainty == -1:
         return False
