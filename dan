@@ -15,20 +15,37 @@ import uuid
 from multiprocessing.pool import ThreadPool
 from subprocess import call
 
-# Enable / disables debug prints
-DEBUG = False
-
 # Chunk size
 CHUNK_SIZE = 4410
 
+# CD quality sampling rate used to determine chunk time
+CD_SAMPLE_RATE = 44100.0
+
+# Minimum length of matches in seconds
+MIN_MATCH_LENGTH = 5
+
+# How close hashes need to be to be considered a match
 DISTANCE_THRESHOLD = 0.001
+
+# Number of decimal places to round to
+HASH_PRECISION = 1
+
+# Time each chunk. This is based on the size of chunks
+CHUNK_TIME = float(CHUNK_SIZE) / CD_SAMPLE_RATE
+
+# Size of fragments
+FRAGMENT_SIZE = int(MIN_MATCH_LENGTH / CHUNK_TIME)
 
 # Supported file extensions
 SUPPORTED_EXTENSIONS = [".wav", ".mp3", ".ogg"]
 
 # Cache which stores data about each song
-# Key is the absolute path and value is the data
-songDataCache = {}
+# Key is the absolute path of the file
+# and value is the data
+johnnySongDateCache = {}
+
+# Enable / disables debug prints
+debug = False
 
 #Print an error to standard error
 #ERROR CODE 1: Invalid command line
@@ -90,7 +107,7 @@ def fileToWave(filePath):
 
     if fileExtension == ".mp3":
         outputPath = os.path.join(tmpPath, "%s.mp3" % formattedFileName[:-4])
-        call(["./lame","--resample", "44.1", "--decode", "--silent",
+        call(["/course/cs4500f14/bin/lame","--resample", "44.1", "--decode", "--silent",
                   filePath, outputPath
                   ])
 
@@ -99,8 +116,8 @@ def fileToWave(filePath):
 #path to wavfile -> 
 def getInfo(path, chunkSize):
 
-    if path in songDataCache:
-        return songDataCache[path]
+    if path in johnnySongDateCache:
+        return johnnySongDateCache[path]
 
     tempWavPath = fileToWave(path)
     wave_results = scipy.io.wavfile.read(tempWavPath)
@@ -133,12 +150,12 @@ def getInfo(path, chunkSize):
         #fftChunk = [x / fftMax for x in fftChunk]
         chunks.append(numpy.sum(fftChunk))
         if (i > 50):
-            hashPrint = round(hash(chunks[i - 50 : i]), 1)
+            hashPrint = round(hash(chunks[i - 50 : i]), HASH_PRECISION)
             songDict.setdefault(hashPrint,[]).append(i - 50)
             hashArr.append(hashPrint)
 
     result = { "energies":chunks, "hashDict":songDict, "hashArr":hashArr }
-    songDataCache[path] = result
+    johnnySongDateCache[path] = result
 
     return result
 
@@ -154,52 +171,27 @@ def hash(chunkArray):
 def sqaure(x):
     return x * x
 
-
 def checkMatch(path1, path2):
 
-    # TODO: Check if supported extension and throw expected error or take out method
-
-    #.1 second energy chunks
-
-    print "Starting getInfo calls"
+    if not isSupportedExtension(path1):
+    	throwError(2, path1)
+    if not isSupportedExtension(path2):
+    	throwError(2, path2)
 
     info1 = getInfo(path1, CHUNK_SIZE)
-    info2 = getInfo(path2, CHUNK_SIZE)
-    #pool = ThreadPool(processes=2)
+    info2 = getInfo(path2, CHUNK_SIZE) 
 
-    #async_result1 = pool.apply_async(getInfo, (path1, CHUNK_SIZE))
-    #async_result2 = pool.apply_async(getInfo, (path2, CHUNK_SIZE))
-
-    #info1 = async_result1.get()
-    #print "info1 finished"
-    #info2 = async_result2.get()
-    #print "info2 finished"
-    #print info2["energies"]
-
-    #t1 = threading.Thread(target=getInfo, args=(path1, CHUNK_SIZE, ))
-    #t1.start()
-    #t2 = threading.Thread(target=getInfo, args=(path2, CHUNK_SIZE, ))
-    #t2.start()
-    #t1.join()
-    #t2.join()
-
-
-
-    fragmentSize = 50   
-    hashThresh = 100
-    
-    chunkTime = float(CHUNK_SIZE) / 44100.0
-
-    for i in range(0, len(info1["energies"]) - fragmentSize - 1):
+    for i in range(0, len(info1["energies"]) - FRAGMENT_SIZE - 1):
         checkList = info2["hashDict"].get(info1["hashArr"][i])
         if checkList:
             for index in checkList:
-                distance = dist.euclidean(info1["energies"][i:i+fragmentSize], info2["energies"][index:index+fragmentSize])
+                distance = dist.euclidean(info1["energies"][i:i+FRAGMENT_SIZE], info2["energies"][index:index+FRAGMENT_SIZE])
                 if distance < DISTANCE_THRESHOLD:
-                    print "MATCH " + formatFileName(path1) + " " + formatFileName(path2) + " " + str(i * chunkTime) + " " + str(index * chunkTime)
-		    if DEBUG:
+                    print "MATCH " + formatFileName(path1) + " " + formatFileName(path2) + " " + str(i * CHUNK_TIME) + " " + str(index * CHUNK_TIME)
+		    if debug:
  		        print "Distance: " + str(distance)
-                    return
+ 		    return 
+                    
 
 #MAIN
 #check for valid command line input
@@ -209,7 +201,7 @@ if len(sys.argv) != 5 and len(sys.argv) != 6:
 
 if len(sys.argv) == 6:
     if sys.argv[5] == '--debug':
-        DEBUG = True
+        debug = True
     else: 
         throwError(1)
     
@@ -244,4 +236,3 @@ for s1 in pathList1:
 
 #exit with status of 0 as specified in directions
 exit(0)
-
