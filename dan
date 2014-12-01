@@ -137,7 +137,7 @@ def getInfo(path, chunkSize):
         #fftChunk = [x / fftMax for x in fftChunk]
         chunks.append(numpy.sum(fftChunk))
         if (i > 50):
-            hashPrint = round(hash(chunks[i-50:i]))
+            hashPrint = round(hash(chunks[i-50:i]), 1)
             songDict.setdefault(hashPrint,[]).append(i-50)
             hashArr.append(hashPrint)
 
