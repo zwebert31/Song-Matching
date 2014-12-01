@@ -9,6 +9,7 @@ import wave
 import numpy
 import os.path
 import scipy.io.wavfile
+import scipy.spatial.distance as dist
 import os
 import uuid
 from subprocess import call
@@ -224,6 +225,83 @@ def getMatchInfo(data1, data2, index1, index2, chunkCount):
     return { "isMatch": certainty >= MATCH_CERTAINTY,
              "certainty": certainty }
 
+#path to wavfile -> 
+def getInfo(path, chunkSize):
+    #TODO remove
+   # path = fileToWave(path);
+
+    wave_results = scipy.io.wavfile.read(path)
+    samplingRate = wave_results[0]
+    # Array of samples
+    wave_data = wave_results[1]
+    sampleCount = len(wave_data)
+
+    channels = wave.open(path, 'r').getnchannels()
+    if (channels == 2):
+        # Convert stereo to mono by averaging the channels 
+        #wave_mono = [[x[0] & 0xFF, x[1] & 0xFF] for x in wave_data]
+        wave_mono = wave_data.mean(axis=1)  
+    else:
+        #wave_mono = [x & 0xFF for x in wave_data]
+        wave_mono = wave_data
+        
+
+    
+    
+    songDict = {}
+    chunks = []
+    allFFT = []
+    for i in range(0, sampleCount / chunkSize):
+        startBounds = i * chunkSize
+        endBounds = (i+1) * chunkSize 
+        fftChunk = numpy.fft.fft(wave_mono[startBounds:endBounds])          
+
+        fftChunk = map(abs, fftChunk)
+        fftChunk = map(sqaure, fftChunk)
+        fftMax = numpy.amax(fftChunk)
+        if (fftMax == 0):
+            fftMax = 1
+        fftChunk = [x / len(fftChunk) / fftMax for x in fftChunk]
+        chunks.append(numpy.sum(fftChunk))
+
+    return chunks;
+
+def hash(chunkArray):
+    weight = 1
+    hashValue = 0;
+    for x in chunkArray:
+        hashValue += (x * weight)
+        weight += 1;
+
+    return hashValue
+
+def sqaure(x):
+    return x * x + 0;
+
+def matchCheck(path1, path2):
+
+    #.1 second energy chunks
+    info1 = getInfo(path1, 4410);
+    info2 = getInfo(path2, 4410);
+
+    fragmentSize = 50   
+    distanceThreshold = 0.005
+    hashThresh = 100
+    #loop through all possible 5 sec fragments
+    for i in range(0, len(info1) - fragmentSize):
+        #loop through each possible 5 sec fragment
+        for j in range(0, len(info2) - fragmentSize):
+            distance = dist.euclidean(info1[i:i+fragmentSize], info2[j:j+fragmentSize])
+           
+            #print str(i * .1) + " " + str(j * .1) + " " + str(distance)
+            if (distance < distanceThreshold):
+                #print "distance: " + str(distance)
+                print "MATCH " + formatFileName(path1) + " " + str(i * .1) + " " + formatFileName(path2) + " " + str(j * .1)
+                return;
+
+    #hash1 = hash(info1[0:50])
+    #hash2 = hash(info2[0:50])
+
 #MAIN
 #check for valid command line input
 
@@ -263,7 +341,8 @@ elif (sys.argv[3] == '-d'):
 
 for s1 in pathList1:
     for s2 in pathList2:
-        isMatch(s1, s2)
+        matchCheck(s1, s2)
 
 #exit with status of 0 as specified in directions
 exit(0)
+
