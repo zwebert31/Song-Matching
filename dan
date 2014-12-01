@@ -166,7 +166,7 @@ def checkMatch(path1, path2):
     hashThresh = 100
     
     # TODO Is this right?
-    chunkTime = 44100 / CHUNK_SIZE
+    chunkTime = CHUNK_SIZE / 44100.0
 
     for i in range(0, len(info1["energies"]) - fragmentSize - 1):
         checkList = info2["hashDict"].get(info1["hashArr"][i])
