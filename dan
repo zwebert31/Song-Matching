@@ -17,18 +17,13 @@ from subprocess import call
 # Enable / disables debug prints
 DEBUG = False
 
-# How much our fftId can be off by and still be considered the same
-ALLOWED_MATCH_ERROR = 5
-
-# Minimum percentage of matches that must 
-# be found in order to signify a match
-MATCH_CERTAINTY = 60
-
 # Chunk size
 CHUNK_SIZE = 4410
 
-# Time per chunk
-CHUNK_TIME = .1
+DISTANCE_THRESHOLD = 0.001
+
+# Supported file extensions
+SUPPORTED_EXTENSIONS = [".wav", ".mp3", ".ogg"]
 
 # Cache which stores data about each song
 # Key is the absolute path and value is the data
@@ -64,17 +59,19 @@ def formatFileName(path):
 def getExtension(path):
     return os.path.splitext(path)[1]
 
-#returns 1 if extension is valid, 0 if invalid
-def isValidExtension(path):
+#returns True if extension is supported, False if not supported
+def isSupportedExtension(path):
     extension = getExtension(path)
-    extensions = [".wav", ".mp3", ".ogg"]
-    return extension in extensions
+    return extension in SUPPORTED_EXTENSIONS
 
 # Returns a path to a wav file.
 # If the file is a wav file already, the input path is returned
 # Otherwise the file is converted to a .wav file and stored in a /tmp path
 def fileToWave(filePath):
-    if getExtension(filePath) == ".wav":
+
+    fileExtension = getExtension(filePath)
+
+    if fileExtension == ".wav":
         return filePath
 
     basePath = "/tmp/waveFiles"
@@ -86,11 +83,11 @@ def fileToWave(filePath):
     formattedFileName = formatFileName(filePath)
     outputPath = ""
 
-    if getExtension(filePath) == ".ogg":
+    if fileExtension == ".ogg":
         outputPath = os.path.join(tmpPath, "%s.ogg" % formattedFileName[:-4])
         call(["/usr/bin/oggdec", filePath, "-o", outputPath, "--quiet"])
 
-    if getExtension(filePath) == ".mp3":
+    if fileExtension == ".mp3":
         outputPath = os.path.join(tmpPath, "%s.mp3" % formattedFileName[:-4])
         call(["./lame","--resample", "44.1", "--decode", "--silent",
                   filePath, outputPath
@@ -100,8 +97,6 @@ def fileToWave(filePath):
 
 #path to wavfile -> 
 def getInfo(path, chunkSize):
-    #TODO remove
-   # path = fileToWave(path);
 
     if path in songDataCache:
         return songDataCache[path]
@@ -137,12 +132,13 @@ def getInfo(path, chunkSize):
         #fftChunk = [x / fftMax for x in fftChunk]
         chunks.append(numpy.sum(fftChunk))
         if (i > 50):
-            hashPrint = round(hash(chunks[i-50:i]), 1)
-            songDict.setdefault(hashPrint,[]).append(i-50)
+            hashPrint = round(hash(chunks[i - 50 : i]), 1)
+            songDict.setdefault(hashPrint,[]).append(i - 50)
             hashArr.append(hashPrint)
 
-    result = {"energies":chunks, "hashDict":songDict, "hashArr":hashArr}
+    result = { "energies":chunks, "hashDict":songDict, "hashArr":hashArr }
     songDataCache[path] = result
+
     return result
 
 def hash(chunkArray):
@@ -150,71 +146,38 @@ def hash(chunkArray):
     hashValue = 0;
     for x in chunkArray:
         hashValue += (x * weight)
-        weight += 1;
+        weight += 1
 
     return hashValue
 
 def sqaure(x):
-    return x * x;
+    return x * x
 
 
-def quickMatchCheck(path1, path2):
+def checkMatch(path1, path2):
+
+    # TODO: Check if supported extension and throw expected error or take out method
 
     #.1 second energy chunks
-    info1 = getInfo(path1, 4410);
-    info2 = getInfo(path2, 4410);
+    info1 = getInfo(path1, CHUNK_SIZE);
+    info2 = getInfo(path2, CHUNK_SIZE);
 
     fragmentSize = 50   
-    distanceThreshold = 0.003
-    returnThreshold = 0.001
     hashThresh = 100
-    minDistance = 10000
-    song1Time = -1
-    song2Time = -2
+    
+    # TODO Is this right?
+    chunkTime = 44100 / CHUNK_SIZE
 
     for i in range(0, len(info1["energies"]) - fragmentSize - 1):
         checkList = info2["hashDict"].get(info1["hashArr"][i])
         if checkList:
             for index in checkList:
                 distance = dist.euclidean(info1["energies"][i:i+fragmentSize], info2["energies"][index:index+fragmentSize])
-                #print "distance: " + str(distance) + " " + str(i * .1) + " " + str(index * .1)
-                if distance < returnThreshold:
-                    print "MATCH " + formatFileName(path1) + " " + formatFileName(path2) + " " + str(i * .1) + " " + str(index * .1)
-                    return;
-                if distance < distanceThreshold and distance < minDistance:
-                    minDistance = distance
-                    song1Time = i * .1
-                    song2Time = index * .1
-
-    if not minDistance == 10000:
-        print "MATCH " + formatFileName(path1) + " " + formatFileName(path2) + " " + song1Time + " " + song2Time
-        return
-
-
-def matchCheck(path1, path2):
-
-    #.1 second energy chunks
-    info1 = getInfo(path1, 4410)["energies"];
-    info2 = getInfo(path2, 4410)["energies"];
-
-    fragmentSize = 50   
-    distanceThreshold = 0.005
-
-    hashThresh = 100
-    #loop through all possible 5 sec fragments
-    for i in range(0, len(info1) - fragmentSize):
-        #loop through each possible 5 sec fragment
-        for j in range(0, len(info2) - fragmentSize):
-            distance = dist.euclidean(info1[i:i+fragmentSize], info2[j:j+fragmentSize])
-            
-            #print str(i * .1) + " " + str(j * .1) + " " + str(distance)
-            if (distance < distanceThreshold):
-                #print "distance: " + str(distance)
-                print "MATCH " + formatFileName(path1) + " " + str(i * .1) + " " + formatFileName(path2) + " " + str(j * .1)
-                return;
-
-    #hash1 = hash(info1[0:50])
-    #hash2 = hash(info2[0:50])
+                if distance < DISTANCE_THRESHOLD:
+                    print "MATCH " + formatFileName(path1) + " " + formatFileName(path2) + " " + str(i * chunkTime) + " " + str(index * chunkTime)
+		    if DEBUG:
+ 		        print "Distance: " + str(distance)
+                    return
 
 #MAIN
 #check for valid command line input
@@ -255,7 +218,7 @@ elif (sys.argv[3] == '-d'):
 
 for s1 in pathList1:
     for s2 in pathList2:
-        quickMatchCheck(s1, s2)
+        checkMatch(s1, s2)
 
 #exit with status of 0 as specified in directions
 exit(0)
