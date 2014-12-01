@@ -12,6 +12,7 @@ import scipy.io.wavfile
 import scipy.spatial.distance as dist
 import os
 import uuid
+from multiprocessing.pool import ThreadPool
 from subprocess import call
 
 # Enable / disables debug prints
@@ -159,14 +160,35 @@ def checkMatch(path1, path2):
     # TODO: Check if supported extension and throw expected error or take out method
 
     #.1 second energy chunks
-    info1 = getInfo(path1, CHUNK_SIZE);
-    info2 = getInfo(path2, CHUNK_SIZE);
+
+    print "Starting getInfo calls"
+
+    info1 = getInfo(path1, CHUNK_SIZE)
+    info2 = getInfo(path2, CHUNK_SIZE)
+    #pool = ThreadPool(processes=2)
+
+    #async_result1 = pool.apply_async(getInfo, (path1, CHUNK_SIZE))
+    #async_result2 = pool.apply_async(getInfo, (path2, CHUNK_SIZE))
+
+    #info1 = async_result1.get()
+    #print "info1 finished"
+    #info2 = async_result2.get()
+    #print "info2 finished"
+    #print info2["energies"]
+
+    #t1 = threading.Thread(target=getInfo, args=(path1, CHUNK_SIZE, ))
+    #t1.start()
+    #t2 = threading.Thread(target=getInfo, args=(path2, CHUNK_SIZE, ))
+    #t2.start()
+    #t1.join()
+    #t2.join()
+
+
 
     fragmentSize = 50   
     hashThresh = 100
     
-    # TODO Is this right?
-    chunkTime = 44100 / CHUNK_SIZE
+    chunkTime = float(CHUNK_SIZE) / 44100.0
 
     for i in range(0, len(info1["energies"]) - fragmentSize - 1):
         checkList = info2["hashDict"].get(info1["hashArr"][i])
