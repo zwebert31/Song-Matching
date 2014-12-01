@@ -27,7 +27,7 @@ To compare two directories:
 Each of the pathnames will either be the path of an audio file or
 of a directory. Each individual file must either end in .wav
 and be in WAVE format, end in .mp3 and be in MP3 format or end in
-.ogg and be in and be in Ogg format.
+.ogg and be in Ogg format.
 
 The .wav files must be in RIFF format, AudioFormat 1, stereo
 or mono, 8 or 16-bit samples with a sampling rate of 11.025, 22.05,
