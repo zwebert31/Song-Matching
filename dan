@@ -67,7 +67,7 @@ def getExtension(path):
 #returns 1 if extension is valid, 0 if invalid
 def isValidExtension(path):
     extension = getExtension(path)
-    extensions = [".wav", ".mp3"]
+    extensions = [".wav", ".mp3", ".ogg"]
     return extension in extensions
 
 # Returns a path to a wav file.
@@ -84,173 +84,45 @@ def fileToWave(filePath):
         os.makedirs(tmpPath)
 
     formattedFileName = formatFileName(filePath)
-    outputPath = os.path.join(tmpPath, "%s.mp3" % formattedFileName[:-4])
- 
-    call(["./lame","--resample", "44.1", "--decode", "--silent",
-              filePath, outputPath
-              ])
+    outputPath = ""
 
-    return outputPath
+    if getExtension(filePath) == ".ogg":
+        outputPath = os.path.join(tmpPath, "%s.ogg" % formattedFileName[:-4])
+        call(["/usr/bin/oggdec", filePath, "-o", outputPath, "--quiet"])
 
-#fftResult -> int
-def fftId(fft):
-    # Gets the magnitude of each complex number
-    fft = map(abs, fft)
-    # Return the frequency which occurs most 
-    return numpy.argmax(fft)   
-    
-#file -> {"dict":dictionary, "data":array}
-def fileToDict(path):
-    if path in songDataCache:
-        return songDataCache[path]
+    if getExtension(filePath) == ".mp3":
+        outputPath = os.path.join(tmpPath, "%s.mp3" % formattedFileName[:-4])
+        call(["./lame","--resample", "44.1", "--decode", "--silent",
+                  filePath, outputPath
+                  ])
 
-    try:
-        channels = wave.open(path, 'r').getnchannels()
-    except wave.Error:
-        throwError(2, path)
-
-    wave_results = scipy.io.wavfile.read(path)
-    
-    samplingRate = wave_results[0]
-    # Array of samples
-    wave_data = wave_results[1]
-    sampleCount = len(wave_data)
-
-    if (channels == 2):
-        # Convert stereo to mono by averaging the channels 
-        wave_mono = wave_data.mean(axis=1)  
-    else:
-        wave_mono = wave_data
- 
-    # Dictionary where keys are fingerprints and values are list of
-    # indicies of the chunks that contain that fingerprint
-    songDict = {}
-    # Array of fingerprints
-    chunks = []
-    # Array of fft chunks
-    allFFT = []
-    for i in range(0, sampleCount / CHUNK_SIZE):
-        startBounds = i * CHUNK_SIZE
-        endBounds = (i+1) * CHUNK_SIZE 
-        fftChunk = numpy.fft.fft(wave_mono[startBounds:endBounds])          
-        allFFT.append(fftChunk)
-        fingerPrint = fftId(fftChunk)
-        chunks.append(fingerPrint)
-        songDict.setdefault(fingerPrint,[]).append(i)
-  
-    result = { "dict":songDict, "data":chunks, "fft":allFFT }
-    songDataCache[path] = result
-
-    return result        
-
-# Get the values from a dictionary where the key is within the range:
-# key - allowedError to key + allowedError
-def roundedDictGet(dic, key, allowedError, default):
-     lower = key - allowedError
-     upper = key + allowedError
-     values = []
-     for i in range(lower, upper):
-         values.append(dic.get(i, default))
-     return values
-
-# Determines if path1 matches path2
-def isMatch(path1, path2):
-    #check for file exists
-    if not os.path.isfile(path1) or not os.path.isfile(path2):
-        throwError(1)
-
-    if not (isValidExtension(path1)):
-        throwError(2, wavePath1)
-    if not (isValidExtension(path2)):
-        throwError(2, path2)
- 
-    f1 = fileToDict(path1)
-    f2 = fileToDict(path2)
-
-    f1Data = f1["data"]
-    f2Dict = f2["dict"]
-    matchFound = False
-    maxCertainty = -1
-    song1Time = 0
-    song2Time = 0
-
-    for i in range(0, len(f1Data)):
-        # Get a list of all indices from the second song
-        # which have the same audio fingerprint
-        checkList = roundedDictGet(f2Dict, f1Data[i], 5, [])
-	for value in checkList:
-            for index in value:
-                matchInfo = getMatchInfo(f1Data, f2["data"], i, index, 50)     
-                if matchInfo["isMatch"]:
-                    # Get match with most certainty
-                    if matchInfo["certainty"] > maxCertainty:
-                        maxCertainty = matchInfo["certainty"]
-                        song1Time = i * CHUNK_TIME
-                        song2Time = index * CHUNK_TIME
-                        if DEBUG:
-                            print "Setting song1Time to " + str(song1Time)
-                            print "Setting song2Time to " + str(song2Time)
-    
-    if maxCertainty == -1:
-        return False
-    else:
-        if DEBUG:
-            print "Final Certainty: " + str(maxCertainty)
-        print ("MATCH " + formatFileName(path1) + " " +
-               formatFileName(path2) + " " +
-               str(song1Time) + " " + str(song2Time)) 
-        return True
-
-# Gets info about a match including if it is a match and the % certainty
-def getMatchInfo(data1, data2, index1, index2, chunkCount):
-    match = 0
-    noMatch = 0
-    data1_length = len(data1)
-    data2_length = len(data2)
-        
-    if ((data1_length <= index1 + chunkCount)
-         or (data2_length <= index2 + chunkCount) 
-         or (index1 < 0) or (index2 < 0)):
-        return { "isMatch": False, "certainty": 100 }
-    
-    for i in range (0, chunkCount):
-        diff = abs(data1[index1 + i] - data2[index2 + i])
-        if diff < ALLOWED_MATCH_ERROR:
-            match += 1
-        else:
-            noMatch += 1 
-   
-    certainty = (float(match) / float(chunkCount)) * 100
-     
-    return { "isMatch": certainty >= MATCH_CERTAINTY,
-             "certainty": certainty }
+    return outputPath 
 
 #path to wavfile -> 
 def getInfo(path, chunkSize):
     #TODO remove
    # path = fileToWave(path);
 
-    wave_results = scipy.io.wavfile.read(path)
+    if path in songDataCache:
+        return songDataCache[path]
+
+    tempWavPath = fileToWave(path)
+    wave_results = scipy.io.wavfile.read(tempWavPath)
     samplingRate = wave_results[0]
     # Array of samples
     wave_data = wave_results[1]
     sampleCount = len(wave_data)
 
-    channels = wave.open(path, 'r').getnchannels()
+    channels = wave.open(tempWavPath, 'r').getnchannels()
     if (channels == 2):
         # Convert stereo to mono by averaging the channels 
-        #wave_mono = [[x[0] & 0xFF, x[1] & 0xFF] for x in wave_data]
         wave_mono = wave_data.mean(axis=1)  
     else:
-        #wave_mono = [x & 0xFF for x in wave_data]
         wave_mono = wave_data
-        
 
-    
-    
     songDict = {}
     chunks = []
-    allFFT = []
+    hashArr = []
     for i in range(0, sampleCount / chunkSize):
         startBounds = i * chunkSize
         endBounds = (i+1) * chunkSize 
@@ -262,9 +134,16 @@ def getInfo(path, chunkSize):
         if (fftMax == 0):
             fftMax = 1
         fftChunk = [x / len(fftChunk) / fftMax for x in fftChunk]
+        #fftChunk = [x / fftMax for x in fftChunk]
         chunks.append(numpy.sum(fftChunk))
+        if (i > 50):
+            hashPrint = round(hash(chunks[i-50:i]))
+            songDict.setdefault(hashPrint,[]).append(i-50)
+            hashArr.append(hashPrint)
 
-    return chunks;
+    result = {"energies":chunks, "hashDict":songDict, "hashArr":hashArr}
+    songDataCache[path] = result
+    return result
 
 def hash(chunkArray):
     weight = 1
@@ -276,23 +155,58 @@ def hash(chunkArray):
     return hashValue
 
 def sqaure(x):
-    return x * x + 0;
+    return x * x;
 
-def matchCheck(path1, path2):
+
+def quickMatchCheck(path1, path2):
 
     #.1 second energy chunks
     info1 = getInfo(path1, 4410);
     info2 = getInfo(path2, 4410);
 
     fragmentSize = 50   
+    distanceThreshold = 0.003
+    returnThreshold = 0.001
+    hashThresh = 100
+    minDistance = 10000
+    song1Time = -1
+    song2Time = -2
+
+    for i in range(0, len(info1["energies"]) - fragmentSize - 1):
+        checkList = info2["hashDict"].get(info1["hashArr"][i])
+        if checkList:
+            for index in checkList:
+                distance = dist.euclidean(info1["energies"][i:i+fragmentSize], info2["energies"][index:index+fragmentSize])
+                #print "distance: " + str(distance) + " " + str(i * .1) + " " + str(index * .1)
+                if distance < returnThreshold:
+                    print "MATCH " + formatFileName(path1) + " " + formatFileName(path2) + " " + str(i * .1) + " " + str(index * .1)
+                    return;
+                if distance < distanceThreshold and distance < minDistance:
+                    minDistance = distance
+                    song1Time = i * .1
+                    song2Time = index * .1
+
+    if not minDistance == 10000:
+        print "MATCH " + formatFileName(path1) + " " + formatFileName(path2) + " " + song1Time + " " + song2Time
+        return
+
+
+def matchCheck(path1, path2):
+
+    #.1 second energy chunks
+    info1 = getInfo(path1, 4410)["energies"];
+    info2 = getInfo(path2, 4410)["energies"];
+
+    fragmentSize = 50   
     distanceThreshold = 0.005
+
     hashThresh = 100
     #loop through all possible 5 sec fragments
     for i in range(0, len(info1) - fragmentSize):
         #loop through each possible 5 sec fragment
         for j in range(0, len(info2) - fragmentSize):
             distance = dist.euclidean(info1[i:i+fragmentSize], info2[j:j+fragmentSize])
-           
+            
             #print str(i * .1) + " " + str(j * .1) + " " + str(distance)
             if (distance < distanceThreshold):
                 #print "distance: " + str(distance)
@@ -321,27 +235,27 @@ if ((sys.argv[1] != '-f' and sys.argv[1] != '-d') or
 pathList1 = []
 pathList2 = []
 if (sys.argv[1] == '-f'):
-    pathList1.append(fileToWave(sys.argv[2]))
+    pathList1.append(sys.argv[2])
 elif (sys.argv[1] == '-d'):
     if os.path.exists(sys.argv[2]) and os.path.isdir(sys.argv[2]):
         files = os.listdir(sys.argv[2])
         for f in files:
-            pathList1.append(fileToWave(os.path.join(sys.argv[2], f)))        
+            pathList1.append(os.path.join(sys.argv[2], f))        
     else:
         throwError(1)    
 if (sys.argv[3] == '-f'):
-    pathList2.append(fileToWave(sys.argv[4]))
+    pathList2.append(sys.argv[4])
 elif (sys.argv[3] == '-d'):
     if os.path.exists(sys.argv[4]) and os.path.isdir(sys.argv[4]):
         files = os.listdir(sys.argv[4])
         for f in files:
-            pathList2.append(fileToWave(os.path.join(sys.argv[4], f)))        
+            pathList2.append(os.path.join(sys.argv[4], f))        
     else:
         throwError(1)
 
 for s1 in pathList1:
     for s2 in pathList2:
-        matchCheck(s1, s2)
+        quickMatchCheck(s1, s2)
 
 #exit with status of 0 as specified in directions
 exit(0)
