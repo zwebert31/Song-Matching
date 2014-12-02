@@ -28,7 +28,7 @@ MIN_MATCH_LENGTH = 5
 DISTANCE_THRESHOLD = 0.001
 
 # Still considered a match but we don't return immediatly, look for lowest distance
-SECOND_DISTANCE_THRESHOLD = 0.0035 
+SECOND_DISTANCE_THRESHOLD = 0.005
 
 # Number of decimal places to round to
 HASH_PRECISION = 1
@@ -116,6 +116,20 @@ def fileToWave(filePath):
 
     return outputPath 
 
+def resampleWav(path):
+    print path
+    basePath = "/tmp/waveFiles"
+    tmpPath = os.path.join(basePath + str(uuid.uuid4()))
+
+    if not os.path.exists(tmpPath):
+        os.makedirs(tmpPath)
+
+    outputPath = os.path.join(tmpPath, path)
+    call(["/usr/bin/mplayer", "-really-quiet", "-vc", "null", "-vo", \
+        "null", path, "-af", "resample=41000", "-ao", "pcm:file=%s" % outputPath \
+        , "2>&-"])
+    print tmpPath
+    return outputPath
 
 #returns an dictionary with the following elements: 
 #energies -> array of energies in chronological order by 
@@ -138,6 +152,14 @@ def getInfo(path, chunkSize):
     wave_results = scipy.io.wavfile.read(tempWavPath)
     samplingRate = wave_results[0]
     wave_data = wave_results[1]
+
+    if samplingRate != 44100:
+        tempWavPath = resampleWav(tempWavPath)
+        wave_results = scipy.io.wavfile.read(tempWavPath)
+        samplingRate = wave_results[0]
+        print tempWavPath
+        print samplingRate
+        wave_data = wave_results[1]
 
     #calculate the number of samples
     sampleCount = len(wave_data)
@@ -249,6 +271,8 @@ def checkMatch(path1, path2):
                     print ("MATCH " + formatFileName(path1) + " " + 
                     formatFileName(path2) + " " + str(i * CHUNK_TIME) + 
                     " " + str(index * CHUNK_TIME))
+                    print info1["hashArr"][i]
+                    print distance
                     if debug:
                         print "Distance: " + str(distance)    	          
                     return

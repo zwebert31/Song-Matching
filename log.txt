@@ -1,0 +1,2 @@
+mplayer: could not connect to socket
+mplayer: No such file or directory
