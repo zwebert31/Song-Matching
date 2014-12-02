@@ -113,81 +113,132 @@ def fileToWave(filePath):
 
     return outputPath 
 
-#path to wavfile -> 
+#returns an dictionary with the following elements: 
+#energies -> array of energies in chronological order by 
+#            dividing the audio into chunkSize fragments, 
+#            at CHUNK_TIME second intervals
+#hashDict -> dictionary mapping hashes of MIN_MATCH_LENGTH seconds of 
+#            audio data, to an array of indices where the hash occurs
+#hashArr  -> array of hashes of MIN_MATCH_LENGTH seconds of audio data 
+#            in chronological order at CHUNK_TIME second intervals
 def getInfo(path, chunkSize):
 
+    #if the result has already been computed, return the result from the cache
     if path in johnnySongDateCache:
         return johnnySongDateCache[path]
 
+    #convert file to wav if neccessary, returns path to converted file
     tempWavPath = fileToWave(path)
+
+    #read the wav data as tuple (samplingRate, array of samples)
     wave_results = scipy.io.wavfile.read(tempWavPath)
     samplingRate = wave_results[0]
-    # Array of samples
     wave_data = wave_results[1]
+
+    #calculate the number of samples
     sampleCount = len(wave_data)
 
+    #determine stereo or mono, and convert to mono
     channels = wave.open(tempWavPath, 'r').getnchannels()
     if (channels == 2):
         # Convert stereo to mono by averaging the channels 
         wave_mono = wave_data.mean(axis=1)  
     else:
+        #signal is already in mono
         wave_mono = wave_data
 
-    songDict = {}
-    chunks = []
+    #dictionary mapping hashes of MIN_MATCH_LENGTH seconds of 
+    #audio data, to an array of indices where the hash occurs
+    hashDict = {}
+    
+    #array of energies in chronological order at CHUNK_TIME second intervals
+    energies = []
+
+    #array of hashes of MIN_MATCH_LENGTH seconds of audio data 
+    #in chronological order at CHUNK_TIME second intervals
     hashArr = []
+
+    #loop through all chunkSize chunks of the song
     for i in range(0, sampleCount / chunkSize):
+
+        #update start and end bounds of the chunk we are looking at
         startBounds = i * chunkSize
         endBounds = (i+1) * chunkSize 
-        fftChunk = numpy.fft.fft(wave_mono[startBounds:endBounds])          
 
+        #take the fft of the chunk
+        fftChunk = numpy.fft.fft(wave_mono[startBounds:endBounds])          
+        #take the magnitude of the complex fft result
         fftChunk = map(abs, fftChunk)
-        fftChunk = map(sqaure, fftChunk)
+        #calculate the power of each fft bin
+        fftChunk = map(lambda x: x * x, fftChunk)
+
+        #find the max value in the fft
         fftMax = numpy.amax(fftChunk)
+        #prevent divide by 0 errors
         if (fftMax == 0):
             fftMax = 1
+        #normalize by dividing each element by the max value    
         fftChunk = [x / len(fftChunk) / fftMax for x in fftChunk]
-        #fftChunk = [x / fftMax for x in fftChunk]
-        chunks.append(numpy.sum(fftChunk))
-        if (i > 50):
-            hashPrint = round(hash(chunks[i - 50 : i]), HASH_PRECISION)
-            songDict.setdefault(hashPrint,[]).append(i - 50)
+
+        #sum the power of each fft bin to get total energy for chunk
+        energies.append(numpy.sum(fftChunk))
+
+        #calculate fragment_size hashes at chunkSize intervals
+        if (i > FRAGMENT_SIZE):
+            #round the hash to the desired hash precision
+            hashPrint = round(hash(energies[i - 50 : i]), HASH_PRECISION)
+            #add the hash to the dictionary
+            hashDict.setdefault(hashPrint,[]).append(i - 50)
+            #append the hash to the chronological array
             hashArr.append(hashPrint)
 
-    result = { "energies":chunks, "hashDict":songDict, "hashArr":hashArr }
+    result = { "energies":energies, "hashDict":hashDict, "hashArr":hashArr }
+    #store the result in the cache
     johnnySongDateCache[path] = result
 
     return result
 
-def hash(chunkArray):
+#returns a hash value for an array of energies
+def hash(energyChunkArray):
+    #sum each element increasing the weight for each element
     weight = 1
     hashValue = 0;
-    for x in chunkArray:
+    for x in energyChunkArray:
         hashValue += (x * weight)
         weight += 1
 
     return hashValue
 
-def sqaure(x):
-    return x * x
-
+#check if the files at the given paths are a match
 def checkMatch(path1, path2):
-
+    #check if given files are in a supported format
     if not isSupportedExtension(path1):
     	throwError(2, path1)
     if not isSupportedExtension(path2):
     	throwError(2, path2)
 
+    #get the info for each song
     info1 = getInfo(path1, CHUNK_SIZE)
     info2 = getInfo(path2, CHUNK_SIZE) 
 
+    #loop through each chunk in song 1
     for i in range(0, len(info1["energies"]) - FRAGMENT_SIZE - 1):
+        #find hash matches in song 2
         checkList = info2["hashDict"].get(info1["hashArr"][i])
+        
+        #loop through hash matches and determine if they are actual matches
         if checkList:
             for index in checkList:
-                distance = dist.euclidean(info1["energies"][i:i+FRAGMENT_SIZE], info2["energies"][index:index+FRAGMENT_SIZE])
+                #take the euclidean distance of the two vectors
+                distance = dist.euclidean( \
+                    info1["energies"][i:i+FRAGMENT_SIZE], \
+                    info2["energies"][index:index+FRAGMENT_SIZE])
+                
+                #if the distance is below our threshold return a match
                 if distance < DISTANCE_THRESHOLD:
-                    print "MATCH " + formatFileName(path1) + " " + formatFileName(path2) + " " + str(i * CHUNK_TIME) + " " + str(index * CHUNK_TIME)
+                    print ("MATCH " + formatFileName(path1) + " " + 
+                    formatFileName(path2) + " " + str(i * CHUNK_TIME) + 
+                    " " + str(index * CHUNK_TIME))
 		    if debug:
  		        print "Distance: " + str(distance)
  		    return 
@@ -195,7 +246,6 @@ def checkMatch(path1, path2):
 
 #MAIN
 #check for valid command line input
-
 if len(sys.argv) != 5 and len(sys.argv) != 6:
     throwError(1)    
 
