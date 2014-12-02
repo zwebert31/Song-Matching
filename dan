@@ -28,9 +28,6 @@ MIN_MATCH_LENGTH = 5
 # How close hashes need to be to be considered a match
 DISTANCE_THRESHOLD = 0.001
 
-# Still considered a match but we don't return immediatly, look for lowest distance
-SECOND_DISTANCE_THRESHOLD = 0.005
-
 # Number of decimal places to round to
 HASH_PRECISION = 1
 
@@ -111,9 +108,8 @@ def fileToWave(filePath):
 
     if fileExtension == ".mp3":
         outputPath = os.path.join(tmpPath, "%s.mp3" % formattedFileName[:-4])
-        call(["/course/cs4500f14/bin/lame","--resample", "44.1", "--decode", "--silent",
-                  filePath, outputPath
-                  ])
+        call(["/course/cs4500f14/bin/lame","--resample", "44.1", "--decode", \
+         "--silent", filePath, outputPath])
 
     return outputPath 
 
@@ -126,7 +122,9 @@ def resampleWav(path):
 
     outputPath = os.path.join(tmpPath, formatFileName(path))
     call(["/usr/bin/mplayer", "-really-quiet", "-vc", "null", "-vo", \
-        "null", path, "-af", "resample=41000", "-ao", "pcm:file=%s" % outputPath], stdout=open(os.devnull, "w"), stderr=subprocess.STDOUT)
+        "null", path, "-af", "resample=41000", "-ao", \
+        "pcm:file=%s" % outputPath], stdout=open(os.devnull, "w"), \
+        stderr=subprocess.STDOUT)
     return outputPath
 
 #returns an dictionary with the following elements: 
@@ -208,7 +206,8 @@ def getInfo(path, chunkSize):
         #calculate fragment_size hashes at chunkSize intervals
         if (i > FRAGMENT_SIZE):
             #round the hash to the desired hash precision
-            hashPrint = round(hash(energies[i - FRAGMENT_SIZE : i]), HASH_PRECISION)
+            hashPrint = round(hash(energies[i - FRAGMENT_SIZE : i]), \
+                HASH_PRECISION)
             #add the hash to the dictionary
             hashDict.setdefault(hashPrint,[]).append(i - FRAGMENT_SIZE)
             #append the hash to the chronological array
@@ -267,8 +266,6 @@ def checkMatch(path1, path2):
                     print ("MATCH " + formatFileName(path1) + " " + 
                     formatFileName(path2) + " " + str(i * CHUNK_TIME) + 
                     " " + str(index * CHUNK_TIME))
-                    print info1["hashArr"][i]
-                    print distance
                     if debug:
                         print "Distance: " + str(distance)    	          
                     return
@@ -281,18 +278,23 @@ def checkMatch(path1, path2):
 if len(sys.argv) != 5 and len(sys.argv) != 6:
     throwError(1)    
 
+#if debug flag is present, allow 6 arguments
 if len(sys.argv) == 6:
     if sys.argv[5] == '--debug':
         debug = True
     else: 
         throwError(1)
-    
+
+#check that -f and -d flags are present and in the right location
 if ((sys.argv[1] != '-f' and sys.argv[1] != '-d') or
    (sys.argv[3] != '-f' and sys.argv[3] != '-d')):
     throwError(1)
 
+#declare two arrays of file paths to compare
 pathList1 = []
 pathList2 = []
+
+#enumerate the path lists
 if (sys.argv[1] == '-f'):
     pathList1.append(sys.argv[2])
 elif (sys.argv[1] == '-d'):
@@ -312,6 +314,7 @@ elif (sys.argv[3] == '-d'):
     else:
         throwError(1)
 
+#check each file in the path list against every file in the other list
 for s1 in pathList1:
     for s2 in pathList2:
         checkMatch(s1, s2)
