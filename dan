@@ -15,7 +15,7 @@ import uuid
 from multiprocessing.pool import ThreadPool
 from subprocess import call
 
-# Chunk size
+# Size of our chunks
 CHUNK_SIZE = 4410
 
 # CD quality sampling rate used to determine chunk time
@@ -26,6 +26,9 @@ MIN_MATCH_LENGTH = 5
 
 # How close hashes need to be to be considered a match
 DISTANCE_THRESHOLD = 0.001
+
+# Still considered a match but we don't return immediatly, look for lowest distance
+SECOND_DISTANCE_THRESHOLD = 0.0035 
 
 # Number of decimal places to round to
 HASH_PRECISION = 1
@@ -42,7 +45,7 @@ SUPPORTED_EXTENSIONS = [".wav", ".mp3", ".ogg"]
 # Cache which stores data about each song
 # Key is the absolute path of the file
 # and value is the data
-johnnySongDateCache = {}
+johnnySongDataCache = {}
 
 # Enable / disables debug prints
 debug = False
@@ -113,11 +116,13 @@ def fileToWave(filePath):
 
     return outputPath 
 
-#path to wavfile -> 
+# Gets info about the song at the specified path
 def getInfo(path, chunkSize):
 
-    if path in johnnySongDateCache:
-        return johnnySongDateCache[path]
+    if path in johnnySongDataCache:
+        if debug:
+            print "Using cached song data for " + path 
+        return johnnySongDataCache[path]
 
     tempWavPath = fileToWave(path)
     wave_results = scipy.io.wavfile.read(tempWavPath)
@@ -147,15 +152,14 @@ def getInfo(path, chunkSize):
         if (fftMax == 0):
             fftMax = 1
         fftChunk = [x / len(fftChunk) / fftMax for x in fftChunk]
-        #fftChunk = [x / fftMax for x in fftChunk]
         chunks.append(numpy.sum(fftChunk))
-        if (i > 50):
-            hashPrint = round(hash(chunks[i - 50 : i]), HASH_PRECISION)
-            songDict.setdefault(hashPrint,[]).append(i - 50)
+        if (i > FRAGMENT_SIZE):
+            hashPrint = round(hash(chunks[i - FRAGMENT_SIZE : i]), HASH_PRECISION)
+            songDict.setdefault(hashPrint,[]).append(i - FRAGMENT_SIZE)
             hashArr.append(hashPrint)
 
     result = { "energies":chunks, "hashDict":songDict, "hashArr":hashArr }
-    johnnySongDateCache[path] = result
+    johnnySongDataCache[path] = result
 
     return result
 
@@ -180,6 +184,10 @@ def checkMatch(path1, path2):
 
     info1 = getInfo(path1, CHUNK_SIZE)
     info2 = getInfo(path2, CHUNK_SIZE) 
+    
+    minDist = 100
+    song1Index = -1
+    song2Index = -1
 
     for i in range(0, len(info1["energies"]) - FRAGMENT_SIZE - 1):
         checkList = info2["hashDict"].get(info1["hashArr"][i])
@@ -190,12 +198,20 @@ def checkMatch(path1, path2):
                     print "MATCH " + formatFileName(path1) + " " + formatFileName(path2) + " " + str(i * CHUNK_TIME) + " " + str(index * CHUNK_TIME)
 		    if debug:
  		        print "Distance: " + str(distance)
- 		    return 
+ 		    return
+                if distance < SECOND_DISTANCE_THRESHOLD and distance < minDist: 
+                    minDist = distance
+                    song1Index = i
+                    song2Index = index
                     
-
+    if not song1Index == -1:
+        if debug:
+            print "Second threshold match found with distance: " + str(distance)
+        print "MATCH " + formatFileName(path1) + " " + formatFileName(path2) + " " + str(song1Index * CHUNK_TIME) + " " + str(song2Index * CHUNK_TIME)
+ 
 #MAIN
-#check for valid command line input
 
+#check for valid command line input
 if len(sys.argv) != 5 and len(sys.argv) != 6:
     throwError(1)    
 
