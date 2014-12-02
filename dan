@@ -14,6 +14,7 @@ import os
 import uuid
 from multiprocessing.pool import ThreadPool
 from subprocess import call
+import subprocess 
 
 # Size of our chunks
 CHUNK_SIZE = 4410
@@ -117,18 +118,15 @@ def fileToWave(filePath):
     return outputPath 
 
 def resampleWav(path):
-    print path
-    basePath = "/tmp/waveFiles"
+    basePath = "/tmp/resample"
     tmpPath = os.path.join(basePath + str(uuid.uuid4()))
 
     if not os.path.exists(tmpPath):
         os.makedirs(tmpPath)
 
-    outputPath = os.path.join(tmpPath, path)
+    outputPath = os.path.join(tmpPath, formatFileName(path))
     call(["/usr/bin/mplayer", "-really-quiet", "-vc", "null", "-vo", \
-        "null", path, "-af", "resample=41000", "-ao", "pcm:file=%s" % outputPath \
-        , "2>&-"])
-    print tmpPath
+        "null", path, "-af", "resample=41000", "-ao", "pcm:file=%s" % outputPath], stdout=open(os.devnull, "w"), stderr=subprocess.STDOUT)
     return outputPath
 
 #returns an dictionary with the following elements: 
@@ -157,8 +155,6 @@ def getInfo(path, chunkSize):
         tempWavPath = resampleWav(tempWavPath)
         wave_results = scipy.io.wavfile.read(tempWavPath)
         samplingRate = wave_results[0]
-        print tempWavPath
-        print samplingRate
         wave_data = wave_results[1]
 
     #calculate the number of samples
