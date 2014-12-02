@@ -15,7 +15,7 @@ import uuid
 from multiprocessing.pool import ThreadPool
 from subprocess import call
 
-# Chunk size
+# Size of our chunks
 CHUNK_SIZE = 4410
 
 # CD quality sampling rate used to determine chunk time
@@ -26,6 +26,9 @@ MIN_MATCH_LENGTH = 5
 
 # How close hashes need to be to be considered a match
 DISTANCE_THRESHOLD = 0.001
+
+# Still considered a match but we don't return immediatly, look for lowest distance
+SECOND_DISTANCE_THRESHOLD = 0.0035 
 
 # Number of decimal places to round to
 HASH_PRECISION = 1
@@ -42,7 +45,7 @@ SUPPORTED_EXTENSIONS = [".wav", ".mp3", ".ogg"]
 # Cache which stores data about each song
 # Key is the absolute path of the file
 # and value is the data
-johnnySongDateCache = {}
+johnnySongDataCache = {}
 
 # Enable / disables debug prints
 debug = False
@@ -124,8 +127,8 @@ def fileToWave(filePath):
 def getInfo(path, chunkSize):
 
     #if the result has already been computed, return the result from the cache
-    if path in johnnySongDateCache:
-        return johnnySongDateCache[path]
+    if path in johnnySongDataCache:
+        return johnnySongDataCache[path]
 
     #convert file to wav if neccessary, returns path to converted file
     tempWavPath = fileToWave(path)
@@ -186,15 +189,16 @@ def getInfo(path, chunkSize):
         #calculate fragment_size hashes at chunkSize intervals
         if (i > FRAGMENT_SIZE):
             #round the hash to the desired hash precision
-            hashPrint = round(hash(energies[i - 50 : i]), HASH_PRECISION)
+            hashPrint = round(hash(energies[i - FRAGMENT_SIZE : i]), HASH_PRECISION)
             #add the hash to the dictionary
-            hashDict.setdefault(hashPrint,[]).append(i - 50)
+            hashDict.setdefault(hashPrint,[]).append(i - FRAGMENT_SIZE)
             #append the hash to the chronological array
             hashArr.append(hashPrint)
 
     result = { "energies":energies, "hashDict":hashDict, "hashArr":hashArr }
     #store the result in the cache
-    johnnySongDateCache[path] = result
+    johnnySongDataCache[path] = result
+
 
     return result
 
@@ -220,6 +224,10 @@ def checkMatch(path1, path2):
     #get the info for each song
     info1 = getInfo(path1, CHUNK_SIZE)
     info2 = getInfo(path2, CHUNK_SIZE) 
+    
+    minDist = 100
+    song1Index = -1
+    song2Index = -1
 
     #loop through each chunk in song 1
     for i in range(0, len(info1["energies"]) - FRAGMENT_SIZE - 1):
@@ -239,11 +247,12 @@ def checkMatch(path1, path2):
                     print ("MATCH " + formatFileName(path1) + " " + 
                     formatFileName(path2) + " " + str(i * CHUNK_TIME) + 
                     " " + str(index * CHUNK_TIME))
-		    if debug:
- 		        print "Distance: " + str(distance)
- 		    return 
+                    if debug:
+                        print "Distance: " + str(distance)    	          
+                    return
+                
                     
-
+  
 #MAIN
 #check for valid command line input
 if len(sys.argv) != 5 and len(sys.argv) != 6:
