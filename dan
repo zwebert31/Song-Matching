@@ -15,6 +15,7 @@ import uuid
 from multiprocessing.pool import ThreadPool
 from subprocess import call
 import subprocess 
+import time
 
 # Size of our chunks
 CHUNK_SIZE = 4410
@@ -136,7 +137,6 @@ def resampleWav(path):
 #hashArr  -> array of hashes of MIN_MATCH_LENGTH seconds of audio data 
 #            in chronological order at CHUNK_TIME second intervals
 def getInfo(path, chunkSize):
-
     #if the result has already been computed, return the result from the cache
     if path in johnnySongDataCache:
         return johnnySongDataCache[path]
@@ -188,21 +188,23 @@ def getInfo(path, chunkSize):
         #take the fft of the chunk
         fftChunk = numpy.fft.fft(wave_mono[startBounds:endBounds])          
         #take the magnitude of the complex fft result
-        fftChunk = map(abs, fftChunk)
+        fftChunk = numpy.absolute(fftChunk)
         #calculate the power of each fft bin
-        fftChunk = map(lambda x: x * x, fftChunk)
-
+        fftChunk = numpy.array(fftChunk)**2
         #find the max value in the fft
         fftMax = numpy.amax(fftChunk)
-        #prevent divide by 0 errors
+
+         #prevent divide by 0 errors
         if (fftMax == 0):
             fftMax = 1
-        #normalize by dividing each element by the max value    
-        fftChunk = [x / len(fftChunk) / fftMax for x in fftChunk]
+   
+        #normalize by dividing each element by the max value 
+        normalizeValue = len(fftChunk) * fftMax  
+        fftChunk = [x / normalizeValue for x in fftChunk]
 
         #sum the power of each fft bin to get total energy for chunk
         energies.append(numpy.sum(fftChunk))
-
+        
         #calculate fragment_size hashes at chunkSize intervals
         if (i > FRAGMENT_SIZE):
             #round the hash to the desired hash precision
@@ -216,17 +218,17 @@ def getInfo(path, chunkSize):
     result = { "energies":energies, "hashDict":hashDict, "hashArr":hashArr }
     #store the result in the cache
     johnnySongDataCache[path] = result
-    
+
     return result
 
 #returns a hash value for an array of energies
 def hash(energyChunkArray):
     #sum each element increasing the weight for each element
     weight = 1
-    hashValue = 0;
+    hashValue = 0
     for x in energyChunkArray:
         hashValue += (x * weight)
-        weight += 1
+        weight += 10
 
     return hashValue
 
@@ -242,7 +244,9 @@ def checkMatch(path1, path2):
     info1 = getInfo(path1, CHUNK_SIZE)
     info2 = getInfo(path2, CHUNK_SIZE) 
 
+    totalTime = 0
     #loop through each chunk in song 1
+   
     for i in range(0, len(info1["energies"]) - FRAGMENT_SIZE - 1):
         #find hash matches in song 2
         checkList = info2["hashDict"].get(info1["hashArr"][i])
@@ -254,7 +258,7 @@ def checkMatch(path1, path2):
                 distance = dist.euclidean( \
                     info1["energies"][i:i+FRAGMENT_SIZE], \
                     info2["energies"][index:index+FRAGMENT_SIZE])
-                
+
                 #if the distance is below our threshold return a match
                 if distance < DISTANCE_THRESHOLD:
                     print ("MATCH " + formatFileName(path1) + " " + 
@@ -262,8 +266,7 @@ def checkMatch(path1, path2):
                     " " + str(index * CHUNK_TIME))
                     if debug:
                         print "Distance: " + str(distance)    	          
-                    return
-                
+                    return           
 #MAIN
 
 #check for valid command line input
