@@ -216,9 +216,7 @@ def getInfo(path, chunkSize):
     result = { "energies":energies, "hashDict":hashDict, "hashArr":hashArr }
     #store the result in the cache
     johnnySongDataCache[path] = result
-
-
-
+    
     return result
 
 #returns a hash value for an array of energies
@@ -243,10 +241,6 @@ def checkMatch(path1, path2):
     #get the info for each song
     info1 = getInfo(path1, CHUNK_SIZE)
     info2 = getInfo(path2, CHUNK_SIZE) 
-    
-    minDist = 100
-    song1Index = -1
-    song2Index = -1
 
     #loop through each chunk in song 1
     for i in range(0, len(info1["energies"]) - FRAGMENT_SIZE - 1):
@@ -270,8 +264,6 @@ def checkMatch(path1, path2):
                         print "Distance: " + str(distance)    	          
                     return
                 
-                    
-  
 #MAIN
 
 #check for valid command line input
